@@ -223,7 +223,6 @@
 		copy_data_to_GPU(obs_G, obs, 1*sizeof(obs_t), stream);
         
         
-        for(int benchmark = 0; benchmark < 100; ++benchmark) {
         
 		hydrostatic1d_GPU(ctl, ctl_G, atm_G, nr, ig_h2o, stream); // in this call atm_G gets modified
 		cuKernelCheck();
@@ -234,7 +233,6 @@
 		surface_terms_GPU <<< nr, nd, 0, stream>>> (tbl_G, obs_G, tsurf_G, nd);
 		cuKernelCheck();
         
-        } // benchmark
         
         if (ctl->write_bbt) { // convert radiance to brightness (in-place)
             radiance_to_brightness_GPU <<< nr, nd, 0, stream >>> (ctl_G, obs_G);
@@ -266,11 +264,10 @@
 		static int numDevices = 0;
 		static gpuLane_t* gpuLanes=NULL;
 		static size_t numLanes = 0;
-		static size_t nextLane = 0;
-		size_t myLane = 0;
+		// static size_t nextLane = 0;
+		// size_t myLane = 0;
 
 		static bool do_init = true;
-		bool early_return = false;
 
 #pragma omp critical
 		{
@@ -280,81 +277,64 @@
               if (ctl->checkmode) {
                 printf("# %s: GPU memory requirement per lane is %.3f MByte\n", __func__, 1e-6*sizePerLane);
               } else {
-				cuCheck(cudaGetDeviceCount(&numDevices));
-				if(ctl->MPIlocalrank > numDevices) {
-					fprintf(stderr, "More MPI-Ranks on Node than GPUs. Abort.\n");
-					exit(1);
-				}
-				cuCheck(cudaSetDevice(ctl->MPIlocalrank));
+                cuCheck(cudaGetDeviceCount(&numDevices));
 
-				// Initialize ctl and tbl-struct (1 per GPU)
-				ctl_G = malloc_GPU(ctl_t, 1);
-				copy_data_to_GPU(ctl_G, ctl, sizeof(ctl_t), 0);
+                // Initialize ctl and tbl-struct (1 per GPU)
+                ctl_G = malloc_GPU(ctl_t, 1);
+                copy_data_to_GPU(ctl_G, ctl, sizeof(ctl_t), 0);
 
-				tbl_G = get_tbl_on_GPU(ctl);
+                tbl_G = get_tbl_on_GPU(ctl);
 
-				// Get number of possible lanes
-				size_t gpuMemFree, gpuMemTotal;
-				cuCheck(cudaMemGetInfo(&gpuMemFree, &gpuMemTotal));
+                // Get number of possible lanes
+                size_t gpuMemFree, gpuMemTotal;
+                cuCheck(cudaMemGetInfo(&gpuMemFree, &gpuMemTotal));
                 debug_printf("[INFO] memory GPU: free %.3f of total %.3f MByte = %.1f %%\n",
-                      1e-6*gpuMemFree, 1e-6*gpuMemTotal, gpuMemFree/(.01*gpuMemTotal));
-              
-				numLanes = (size_t)((0.9*gpuMemFree) / (double)sizePerLane); // Only use 90% of free GPU memory ...
-                                                  // ... other space is needed for alignment and profiling buffers
-				size_t const maxNumLanes = 4; // Do not really need more than a handfull of lanes
-				if (numLanes > maxNumLanes) numLanes = maxNumLanes;
-                debug_printf("[INFO] GPU memory per lane: %.3f MByte, try to fit %i lanes\n", 1e-6*sizePerLane, numLanes);
-				if (numLanes < 1) ERRMSG("Memory requirement per lane is too high, no lanes");
+                    1e-6*gpuMemFree, 1e-6*gpuMemTotal, gpuMemFree/(.01*gpuMemTotal));
 
-				gpuLanes = (gpuLane_t*) malloc(numLanes*sizeof(gpuLane_t)); // (this memory is never freed)
-				for(size_t lane = 0; lane < numLanes; ++lane) {
-					gpuLane_t* gpu = &(gpuLanes[lane]); // abbreviation
-					// Allocation of GPU memory
-					gpu->obs_G		= malloc_GPU(obs_t, 1);
-					gpu->atm_G		= malloc_GPU(atm_t, NR);
-					gpu->tsurf_G	= malloc_GPU(double, NR);
-					gpu->np_G		= malloc_GPU(int, NR);
-					gpu->los_G		= (pos_t (*)[NLOS])__allocate_on_GPU(NR*NLOS*sizeof(pos_t), __FILE__, __LINE__); 
-                                      // for los_G[NLOS], the macro malloc_GPU does not work
-					cuCheck(cudaStreamCreate(&gpu->stream));
-                    debug_printf("[INFO] cudaStreamCreate --> streamId %d\n", gpu->stream);
-				} // lane
+                numLanes = (size_t)((0.9*gpuMemFree) / (double)sizePerLane); // Only use 90% of free GPU memory ...
+                // ... other space is needed for alignment and profiling buffers
+                size_t const maxNumLanes = 4; // Do not really need more than a handfull of lanes
+                if (numLanes > maxNumLanes) numLanes = maxNumLanes;
+                debug_printf("[INFO] GPU memory per lane: %.3f MByte, try to fit %i lanes\n", 1e-6*sizePerLane, numLanes);
+                if (numLanes < 1) ERRMSG("Memory requirement per lane is too high, no lanes");
+
+                gpuLanes = (gpuLane_t*) malloc(numLanes*sizeof(gpuLane_t)); // (this memory is never freed)
+                for(size_t lane = 0; lane < numLanes; ++lane) {
+                  gpuLane_t* gpu = &(gpuLanes[lane]); // abbreviation
+                  // Allocation of GPU memory
+                  gpu->obs_G		= malloc_GPU(obs_t, 1);
+                  gpu->atm_G		= malloc_GPU(atm_t, NR);
+                  gpu->tsurf_G	= malloc_GPU(double, NR);
+                  gpu->np_G		= malloc_GPU(int, NR);
+                  gpu->los_G		= (pos_t (*)[NLOS])__allocate_on_GPU(NR*NLOS*sizeof(pos_t), __FILE__, __LINE__); 
+                  // for los_G[NLOS], the macro malloc_GPU does not work
+                  cuCheck(cudaStreamCreate(&gpu->stream));
+                  debug_printf("[INFO] cudaStreamCreate --> streamId %d\n", gpu->stream);
+                } // lane
               } // checkmode
 
 				do_init = false;
-				nextLane = 0;
-#ifdef RETURN_AFTER_INIT
-				early_return = true;
-#endif 				
+				// nextLane = 0;
 			} // do_init
 
 			// Save own Lane and increment global / static counter
-			myLane = nextLane;
-			nextLane++;
-			if(nextLane >= numLanes) nextLane=0;
+			// myLane = nextLane;
+			// nextLane++;
+			// if(nextLane >= numLanes) nextLane=0;
 		} // omp critical
 
 		if (ctl->checkmode) { printf("# %s: no operation in checkmode\n", __func__); return; }
 		
-		if (early_return) {
-			printf("# %s: no operation after initialization (benchmarking mode)\n", __func__);
-			return;
-		} // early_return
-
-		cuCheck(cudaSetDevice(ctl->MPIlocalrank));
-
-		char mask[NR][ND];
+    printf("numDevices: %d\n", numDevices);
+		
+    char mask[NR][ND];
 		save_mask(mask, obs, ctl);
 #pragma omp parallel
         {
-            int const cpu_thread_id = omp_get_thread_num();
-#pragma omp parallel for num_threads(numDevices)
-            for(int gpu_id = 0; gpu_id < numDevices; ++gpu_id) {
-                debug_printf("# gpu_id=%i runs one package started by CPU thread %i\n", gpu_id, cpu_thread_id);	
-                cuCheck(cudaSetDevice(gpu_id));
-                copy_data_to_GPU(ctl_G, ctl, sizeof(ctl_t), gpuLanes[myLane].stream); // controls might change, update
-                formod_one_package(ctl, ctl_G, tbl_G, atm, obs, &gpuLanes[myLane]);
-            } // gpu_id
+            int myLane = 0;
+            // int const cpu_thread_id = omp_get_thread_num();
+            copy_data_to_GPU(ctl_G, ctl, sizeof(ctl_t), gpuLanes[myLane].stream); // controls might change, update
+            formod_one_package(ctl, ctl_G, tbl_G, atm, obs, &gpuLanes[myLane]);
         }
 		apply_mask(mask, obs, ctl);
 	} // formod_GPU
