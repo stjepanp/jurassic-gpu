@@ -1,0 +1,1 @@
+Shell debugging temporarily silenced: export LMOD_SH_DBG_ON=1 for this output (/p/software/jusuf/lmod/8.2.10/init/bash)

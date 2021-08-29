@@ -1,0 +1,2 @@
+salloc --account=slmet --time=01:00:00 --partition=gpus --nodes=1 --gres=gpu:1
+srun --cpu_bind=none --nodes=1 --pty /bin/bash -i
