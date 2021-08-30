@@ -308,7 +308,7 @@ void hydrostatic_1d(ctl_t const *const ctl, atm_t *atm, int const ip0, int const
 
 
 //***************************************************************************
-void init_tbl(ctl_t const *ctl, tbl_t *tbl) {
+void init_tbl(ctl_t const *ctl, trans_table_t *tbl) {
     if (ctl->read_binary) {
         int const binary_reading_status = jr_read_binary_tables(tbl, ctl);
         if (0 == binary_reading_status) {

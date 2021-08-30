@@ -32,5 +32,5 @@ http://www.fz-juelich.de/ias/jsc/jurassic
 */
 #pragma once
 
-#include "new_header.h"
+#include "jr_scatter_gpu.h"
 #include "jurassic_functions.h"

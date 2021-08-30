@@ -14,7 +14,7 @@
 	} // radiance_to_brightness
 
 	__host__
-	void surface_terms_CPU(tbl_t const *tbl, obs_t *obs, double const tsurf[], int const nd) {
+	void surface_terms_CPU(trans_table_t const *tbl, obs_t *obs, double const tsurf[], int const nd) {
 #pragma omp for
 		for(int ir = 0; ir < obs->nr; ir++) { // loop over rays
 			for(int id = 0; id < nd; id++) { // loop over detectors
@@ -48,7 +48,7 @@
 	} // multi_continua_CPU
 
 	__host__
-	void apply_kernels_CPU(tbl_t const *tbl, ctl_t const *ctl, obs_t *obs, 
+	void apply_kernels_CPU(trans_table_t const *tbl, ctl_t const *ctl, obs_t *obs, 
         pos_t const (*restrict los)[NLOS], int const np[], 
         int const ig_co2, int const ig_h2o, char const fourbit) {
 
@@ -117,7 +117,7 @@
 		char mask[NR][ND];
 		save_mask(mask, obs, ctl);
 
-		tbl_t const *tbl = get_tbl(ctl);
+		trans_table_t const *tbl = get_tbl(ctl);
 		double *t_surf = (double*)malloc((obs->nr)*sizeof(double));
 		int *np = (int*)malloc((obs->nr)*sizeof(int));
 		pos_t (*los)[NLOS] = (pos_t (*)[NLOS])malloc((obs->nr)*(NLOS)*sizeof(pos_t));

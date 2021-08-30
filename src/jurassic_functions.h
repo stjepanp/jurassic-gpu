@@ -144,7 +144,7 @@ void formod_rfm(
 /*! Compute Planck source function. */
 void formod_srcfunc(
 		ctl_t const *ctl,
-		tbl_t const *tbl,
+		trans_table_t const *tbl,
 		double const t,
 		double *src);
 
@@ -181,7 +181,7 @@ void idx2name(
 /*! Initialize look-up tables. */
 void init_tbl(
 		ctl_t const * ctl,
-		tbl_t * tbl);
+		trans_table_t * tbl);
 
 /*! Interpolate complete atmospheric data set. */
 void intpol_atm(
@@ -239,7 +239,7 @@ void intpol_atm_3d(
 
 /*! Interpolate emissivity from look-up tables. */
 double intpol_tbl_eps(
-		tbl_t const *tbl,
+		trans_table_t const *tbl,
 		int const ig,
 		int const id,
 		int const ip,
@@ -248,7 +248,7 @@ double intpol_tbl_eps(
 
 /*! Interpolate column density from look-up tables. */
 double intpol_tbl_u(
-		tbl_t const *tbl,
+		trans_table_t const *tbl,
 		int const ig,
 		int const id,
 		int const ip,

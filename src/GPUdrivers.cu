@@ -76,17 +76,17 @@
     #define getUnifiedMemory(TYPE, NUM) (TYPE *)__allocate_unified_memory((NUM)*sizeof(TYPE), __FILE__, __LINE__)
     
     __host__
-	tbl_t* get_tbl_on_GPU(ctl_t const *ctl) {
-		static tbl_t *tbl_G = nullptr;
+	trans_table_t* get_tbl_on_GPU(ctl_t const *ctl) {
+		static trans_table_t *tbl_G = nullptr;
 		if (!tbl_G) {
-			tbl_t* tbl = get_tbl(ctl);
+			trans_table_t* tbl = get_tbl(ctl);
 #ifdef  USE_UNIFIED_MEMORY_FOR_TABLES
-            printf("[INFO] allocated %.3f MByte unified memory for tables\n", 1e-6*sizeof(tbl_t));
+            printf("[INFO] allocated %.3f MByte unified memory for tables\n", 1e-6*sizeof(trans_table_t));
             tbl_G = tbl; // just passing a pointer, same memory space
 #else
-            printf("[INFO] try to allocate %.3f MByte GPU memory for tables\n", 1e-6*sizeof(tbl_t));
-			tbl_G = malloc_GPU(tbl_t, 1);
-			copy_data_to_GPU(tbl_G, tbl, sizeof(tbl_t), 0);
+            printf("[INFO] try to allocate %.3f MByte GPU memory for tables\n", 1e-6*sizeof(trans_table_t));
+			tbl_G = malloc_GPU(trans_table_t, 1);
+			copy_data_to_GPU(tbl_G, tbl, sizeof(trans_table_t), 0);
 #endif
 		} // !tbl_G
 		return tbl_G;
@@ -107,7 +107,7 @@
 
 	// Add planetary surface emission ////////////////////////////////////////////
 	void __global__ // GPU-kernel
-		surface_terms_GPU(const tbl_t *tbl, obs_t *obs, double const tsurf[], int const nd) {
+		surface_terms_GPU(const trans_table_t *tbl, obs_t *obs, double const tsurf[], int const nd) {
 			for(int ir = blockIdx.x; ir < obs->nr; ir += gridDim.x) { // grid stride loop over blocks = rays
 				for(int id = threadIdx.x; id < nd; id += blockDim.x) { // grid stride loop over threads = detectors
 					add_surface_core(obs, tbl, tsurf[ir], ir, id);
@@ -121,7 +121,7 @@
 #undef  KERNEL
 
     __host__
-	void multi_version_GPU(char const fourbit, tbl_t const *tbl, ctl_t const *ctl,
+	void multi_version_GPU(char const fourbit, trans_table_t const *tbl, ctl_t const *ctl,
 			obs_t *obs, pos_t const (*restrict los)[NLOS],
 			int const np[], int const ig_co2, int const ig_h2o,
 			unsigned const grid, unsigned const block, unsigned const shmem, cudaStream_t const stream) {
@@ -185,7 +185,7 @@
 	// The full forward model working on one package of NR rays
     __host__
 	void formod_one_package(ctl_t const *ctl, ctl_t const *ctl_G,
-			tbl_t const *tbl_G,
+			trans_table_t const *tbl_G,
 			atm_t const *atm, // can be made const if we do not get the atms back
 			obs_t *obs,
 			gpuLane_t const *gpu)
@@ -259,7 +259,7 @@
 	__host__
 	void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs) {
 		static ctl_t *ctl_G=NULL;
-		static tbl_t *tbl_G=NULL;
+		static trans_table_t *tbl_G=NULL;
 
 		static int numDevices = 0;
 		static gpuLane_t* gpuLanes=NULL;

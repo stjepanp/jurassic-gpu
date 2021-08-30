@@ -37,7 +37,7 @@ int jr_binary_tables_header(char header[], size_t const header_length, ctl_t con
        NG, TBLNP, TBLNT, TBLNU, ND, TBLNS);
 
   h += sprintf(h, "\n\nfile_size   %lld\nheader_size %lld\ntable_size  %lld",
-          header_length + sizeof(tbl_t), header_length, sizeof(tbl_t));
+          header_length + sizeof(trans_table_t), header_length, sizeof(trans_table_t));
 
   char const *const header_end = header + header_length - 16;
   h += sprintf(h, "\n\n\nng %d emitter gases:\n", ctl->ng);
@@ -103,8 +103,8 @@ int jr_binary_tables_check_header(ctl_t const *ctl, char const header[], size_t 
                     if (lli != BINARY_TABLES_HEADER_LEN)
                         printf("# header sizes differ: %lld and %d\n", BINARY_TABLES_HEADER_LEN, lli);
               break; case 0x72730e3c0af490e7: table_size = lli; // "table_size"
-                    err = (table_size < sizeof(tbl_t));
-                    if (err) printf("# table sizes differ: %lld < %lld\n", table_size, sizeof(tbl_t));
+                    err = (table_size < sizeof(trans_table_t));
+                    if (err) printf("# table sizes differ: %lld < %lld\n", table_size, sizeof(trans_table_t));
               break; case 0x5978da: err = (lli < ctl->ng); // "ng"
               break; case 0x5978d7: err = (lli < ctl->nd); // "nd"
               break; case 0x18b2e43830995656: has_fast_inverse = lli; // "FAST_INVERSE_OF_U"
@@ -210,7 +210,7 @@ int jr_binary_tables_check_header(ctl_t const *ctl, char const header[], size_t 
     return nerrors;
 } // jr_binary_tables_check_header
 
-int jr_binary_posix_write(tbl_t const *tbl, char const *filename, 
+int jr_binary_posix_write(trans_table_t const *tbl, char const *filename, 
            char const *header, size_t const header_length) {
     printf("# try to open \"%s\" for writing binary\n", filename);
     FILE *fptr = fopen(filename, "wb");
@@ -223,16 +223,16 @@ int jr_binary_posix_write(tbl_t const *tbl, char const *filename,
     if (hl != header_length) return __LINE__;
     if (NULL == tbl) return __LINE__;         
 
-    printf("# writing tables with size %.3f MByte binary\n", 1e-6*sizeof(tbl_t));
-    size_t const one = fwrite(tbl, sizeof(tbl_t), 1, fptr); // binary write of tbl
-    printf("# tables with size %.3f MByte written binary\n", 1e-6*sizeof(tbl_t));
+    printf("# writing tables with size %.3f MByte binary\n", 1e-6*sizeof(trans_table_t));
+    size_t const one = fwrite(tbl, sizeof(trans_table_t), 1, fptr); // binary write of tbl
+    printf("# tables with size %.3f MByte written binary\n", 1e-6*sizeof(trans_table_t));
 
     fclose(fptr); 
     printf("# file \"%s\" written\n", filename);
     return one - 1;
 } // jr_binary_posix_write
 
-int jr_binary_posix_read(tbl_t *tbl, char const *filename, ctl_t const *ctl) {
+int jr_binary_posix_read(trans_table_t *tbl, char const *filename, ctl_t const *ctl) {
     if (NULL == filename) return __LINE__; // error
     printf("# try to open \"%s\" for reading binary\n", filename);
     FILE *fptr = fopen(filename, "rb");
@@ -260,14 +260,14 @@ int jr_binary_posix_read(tbl_t *tbl, char const *filename, ctl_t const *ctl) {
     }
     if (NULL == tbl) { fclose(fptr); return __LINE__; } // error
 
-    size_t const one = fread(tbl, sizeof(tbl_t), 1, fptr); // binary read of tbl
+    size_t const one = fread(tbl, sizeof(trans_table_t), 1, fptr); // binary read of tbl
 
     fclose(fptr);
     printf("# file \"%s\" read, status = %lld\n", filename, one - 1);
     return one - 1;
 } // jr_binary_posix_read
 
-int jr_write_binary_tables(tbl_t const *tbl, ctl_t const *ctl) {
+int jr_write_binary_tables(trans_table_t const *tbl, ctl_t const *ctl) {
     TIMER("WRITE", 1); // start timer
     char filename[BINARY_TABLES_FILENAME_LEN];
     jr_binary_tables_filename(filename);
@@ -279,7 +279,7 @@ int jr_write_binary_tables(tbl_t const *tbl, ctl_t const *ctl) {
     return status;
 } // jr_write_binary_tables
 
-int jr_read_binary_tables(tbl_t *tbl, ctl_t const *ctl) {
+int jr_read_binary_tables(trans_table_t *tbl, ctl_t const *ctl) {
     TIMER("READ", 1); // start timer
     char filename[BINARY_TABLES_FILENAME_LEN];
     jr_binary_tables_filename(filename);

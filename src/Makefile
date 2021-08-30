@@ -13,6 +13,7 @@ LIBDIR += -L ../lib/build/lib
 # Include directories...
 INCDIR =
 INCDIR += -I ../lib/build/include
+INCDIR += -I ../lib/common_header  
 
 # Linking...
 STATIC = 1

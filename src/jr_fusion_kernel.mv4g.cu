@@ -1,6 +1,6 @@
     void __global__ // GPU-kernel
     XCAT(XCAT(XCAT(XCAT(fusion_kernel_GPU_,CO2),H2O),N2),O2)
-        (tbl_t const *tbl, ctl_t const *ctl,
+        (trans_table_t const *tbl, ctl_t const *ctl,
         obs_t *obs, pos_t const (*restrict los)[NLOS],
         int const np[], int const ig_co2, int const ig_h2o) {
 			double tau_path[NG];

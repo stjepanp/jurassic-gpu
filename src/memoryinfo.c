@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
   showMemory(atm_t, kByte);
   showMemory(pos_t, kByte);
   showMemory(obs_t, MByte);
-  showMemory(tbl_t, GByte);
+  showMemory(trans_table_t, GByte);
 #undef  showMemory
   
   return EXIT_SUCCESS;

@@ -389,7 +389,7 @@ typedef struct { /// Observation geometry and radiance data. //////////////////
 
 typedef float real_tblND_t;
 
-typedef struct {  /// Emissivity look-up tables. ///////////////////////////////
+typedef struct {  /// Transposed emissivity look-up tables. - GPU version  /////
 	int32_t np[NG][ND];                             /// Number of pressure levels.
 	int32_t nt[NG][TBLNP][ND];                      /// Number of temperatures.
 	int32_t nu[NG][TBLNP][TBLNT][ND];               /// Number of column densities.
@@ -404,5 +404,5 @@ typedef struct {  /// Emissivity look-up tables. ///////////////////////////////
 	double u0inv[NG][TBLNP][TBLNT][ND];                       /// FAST_INVERSE_OF_U
   /// We assume a logarithmic increment by 2^(1/6)          /// FAST_INVERSE_OF_U
 #endif
-} tbl_t; ///////////////////////////////////////////////////////////////////////
+} trans_table_t; ///////////////////////////////////////////////////////////////////////
 #endif
