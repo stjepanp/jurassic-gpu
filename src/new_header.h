@@ -295,7 +295,7 @@
 	 Structs...
 	 ------------------------------------------------------------ */
 
-typedef struct { /// Atmospheric data. //////////////////////////////////////////
+typedef struct { /// Atmospheric data. /////////////////////////////////////////
 	double time[NP];			 /// Time (seconds since 2000-01-01T00:00Z).
 	double z[NP];					 /// Altitude [km].
 	double lon[NP];				 /// Longitude [deg].
@@ -306,152 +306,72 @@ typedef struct { /// Atmospheric data. /////////////////////////////////////////
 	double k[NW][NP];			 /// Extinction [1/km].
 	int np;                /// Number of data points.
 	int init;							 /// Init flag for interpolation (0=no, 1=yes).
-} atm_t; // ////////////////////////////////////////////////////////////////////
+} atm_t; ///////////////////////////////////////////////////////////////////////
 
-/*! Forward model control parameters. */
-typedef struct {
+typedef struct { /// Forward model control parameters. /////////////////////////
+	int ng;                 /// Number of emitters.
+	char emitter[NG][LEN];  /// Name of each emitter.
+  int nd;                 /// Number of radiance channels.
+	int nw;                 /// Number of spectral windows.
+	double nu[ND];          /// Centroid wavenumber of each channel [cm^-1].
+	int window[ND];         /// Window index of each channel. 
+	char tblbase[LEN];      /// Basename for table files and filter function files.
+	double hydz;            /// Reference height for hydrostatic pressure profile (-999 to skip) [km].
+	int ctm_co2;            /// Compute CO2 continuum (0=no, 1=yes).
+	int ctm_h2o;            /// Compute H2O continuum (0=no, 1=yes).
+	int ctm_n2;             /// Compute N2 continuum (0=no, 1=yes).
+	int ctm_o2;             /// Compute O2 continuum (0=no, 1=yes).
+	int ip;                 /// Interpolation method (1=profile, 2=satellite track, 3=Lagrangian grid).
+	double cz;              /// Influence length for vertical interpolation [km].
+	double cx;              /// Influence length for horizontal interpolation [km].
+	int refrac;             /// Take into account refractivity (0=no, 1=yes).
+	double rayds;           /// Maximum step length for raytracing [km].
+	double raydz;           /// Vertical step length for raytracing [km].
+	char fov[LEN];          /// Field-of-view data file.
+	double retp_zmin;       /// Minimum altitude for pressure retrieval [km].
+	double retp_zmax;       /// Maximum altitude for pressure retrieval [km].
+	double rett_zmin;       /// Minimum altitude for temperature retrieval [km].
+	double rett_zmax;       /// Maximum altitude for temperature retrieval [km].
+	double retq_zmin[NG];   /// Minimum altitude for volume mixing ratio retrieval [km].
+	double retq_zmax[NG];   /// Maximum altitude for volume mixing ratio retrieval [km].
+	double retk_zmin[NW];   /// Minimum altitude for extinction retrieval [km].
+	double retk_zmax[NW];   /// Maximum altitude for extinction retrieval [km].
+	int write_bbt;          /// Use brightness temperature instead of radiance (0=no, 1=yes).
+	int write_matrix;       /// Write matrix file (0=no, 1=yes).
+	int formod;             /// Forward model (1=CGA, 2=EGA, 3=RFM).
+	char rfmbin[LEN];       /// Path to RFM binary.
+	char rfmhit[LEN];       /// HITRAN file for RFM.
+	char rfmxsc[NG][LEN];   /// Emitter cross-section files for RFM.
+	int useGPU;             /// Use GPU-accelerated formod implementation (0=no, 1=yes)
+	int checkmode;          /// do not perform input, computation, nor output, just make sure files are there 
+	int MPIglobrank;        /// MPI global rank
+	int MPIlocalrank;       /// MPI node-local Rank
+  int read_binary;        /// binary IO
+  int write_binary;       /// binary IO
+  int gpu_nbytes_shared_memory; /// Shared memory controler for GPU kernels
+} ctl_t; ///////////////////////////////////////////////////////////////////////
 
-	/*! Number of emitters. */
-	int ng;
-
-	/*! Name of each emitter. */
-	char emitter[NG][LEN];
-
-	/*! Number of radiance channels. */
-	int nd;
-
-	/*! Number of spectral windows. */
-	int nw;
-
-	/*! Centroid wavenumber of each channel [cm^-1]. */
-	double nu[ND];
-
-	/*! Window index of each channel. */
-	int window[ND];
-
-	/*! Basename for table files and filter function files. */
-	char tblbase[LEN];
-
-	/*! Reference height for hydrostatic pressure profile (-999 to skip) [km]. */
-	double hydz;
-
-	/*! Compute CO2 continuum (0=no, 1=yes). */
-	int ctm_co2;
-
-	/*! Compute H2O continuum (0=no, 1=yes). */
-	int ctm_h2o;
-
-	/*! Compute N2 continuum (0=no, 1=yes). */
-	int ctm_n2;
-
-	/*! Compute O2 continuum (0=no, 1=yes). */
-	int ctm_o2;
-
-	/*! Interpolation method (1=profile, 2=satellite track, 3=Lagrangian grid). */
-	int ip;
-
-	/*! Influence length for vertical interpolation [km]. */
-	double cz;
-
-	/*! Influence length for horizontal interpolation [km]. */
-	double cx;
-
-	/*! Take into account refractivity (0=no, 1=yes). */
-	int refrac;
-
-	/*! Maximum step length for raytracing [km]. */
-	double rayds;
-
-	/*! Vertical step length for raytracing [km]. */
-	double raydz;
-
-	/*! Field-of-view data file. */
-	char fov[LEN];
-
-	/*! Minimum altitude for pressure retrieval [km]. */
-	double retp_zmin;
-
-	/*! Maximum altitude for pressure retrieval [km]. */
-	double retp_zmax;
-
-	/*! Minimum altitude for temperature retrieval [km]. */
-	double rett_zmin;
-
-	/*! Maximum altitude for temperature retrieval [km]. */
-	double rett_zmax;
-
-	/*! Minimum altitude for volume mixing ratio retrieval [km]. */
-	double retq_zmin[NG];
-
-	/*! Maximum altitude for volume mixing ratio retrieval [km]. */
-	double retq_zmax[NG];
-
-	/*! Minimum altitude for extinction retrieval [km]. */
-	double retk_zmin[NW];
-
-	/*! Maximum altitude for extinction retrieval [km]. */
-	double retk_zmax[NW];
-
-	/*! Use brightness temperature instead of radiance (0=no, 1=yes). */
-	int write_bbt;
-
-	/*! Write matrix file (0=no, 1=yes). */
-	int write_matrix;
-
-	/*! Forward model (1=CGA, 2=EGA, 3=RFM). */
-	int formod;
-
-	/*! Path to RFM binary. */
-	char rfmbin[LEN];
-
-	/*! HITRAN file for RFM. */
-	char rfmhit[LEN];
-
-	/*! Emitter cross-section files for RFM. */
-	char rfmxsc[NG][LEN];
-
-	/*! Use GPU-accelerated formod implementation (0=no, 1=yes) */
-	int useGPU;
-    
-    /*! do not perform input, computation, nor output, just make sure files are there */
-	int checkmode;
-
-	/*! MPI rank information */
-	int MPIglobrank;  // global rank
-	int MPIlocalrank; // node-local Rank
-
-	/* binary IO */
-    int read_binary;
-    int write_binary;
-
-    /*! Shared memory controler for GPU kernels */
-    int gpu_nbytes_shared_memory;
-
-} ctl_t;
-
-
-/*! Point on the Line-of-sight data without storing */
-typedef struct {
-	double z;		/*! Altitude [km]. */
-	double lon;	/*! Longitude [deg]. */
-	double lat;	/*! Latitude [deg]. */
-	double p;		/*! Pressure [hPa]. */
-	double t;		/*! Temperature [K]. */
-	double q[NG];	/*! Volume mixing ratio. */
-	double k[NW];	/*! Extinction [1/km]. */
-	double ds;	/*! Segment length [km]. */
-	double u[NG];	/*! Column density [molecules/cm^2]. */
+typedef struct {  /// Point on the Line-of-sight data without storing //////////
+	double z;		    /// Altitude [km].
+	double lon;	    /// Longitude [deg].
+	double lat;	    /// Latitude [deg].
+	double p;		    /// Pressure [hPa].
+	double t;		    /// Temperature [K].
+	double q[NG];	  /// Volume mixing ratio.
+	double k[NW];	  /// Extinction [1/km].
+	double ds;	    /// Segment length [km].
+	double u[NG];	  /// Column density [molecules/cm^2].
 #ifdef CURTIS_GODSON
-	double cgp[NG];	/*! Curtis-Godson pressure [hPa]. */
-	double cgt[NG];	/*! Curtis-Godson temperature [K]. */
-	double cgu[NG];	/*! Curtis-Godson column density [molecules/cm^2]. */
+	double cgp[NG];	/// Curtis-Godson pressure [hPa].
+	double cgt[NG];	/// Curtis-Godson temperature [K].
+	double cgu[NG];	/// Curtis-Godson column density [molecules/cm^2].
 #endif
 #ifdef GPUDEBUG
-	int ip, ir;  // debug helpers
+	int ip, ir;     /// debug helpers
 #endif
-} pos_t;
+} pos_t; //////////////////////////////////////////////////////////////////////
 
-typedef struct { /// Observation geometry and radiance data. ///////////////////
+typedef struct { /// Observation geometry and radiance data. //////////////////
 	double time[NR];		/// Time (seconds since 2000-01-01T00:00Z). 
 	double obsz[NR];		/// Observer altitude [km]. 
 	double obslon[NR];	/// Observer longitude [deg]. 
@@ -465,45 +385,24 @@ typedef struct { /// Observation geometry and radiance data. ///////////////////
 	double tau[NR][ND]; /// Transmittance of ray path.		// transposed
 	double rad[NR][ND]; /// Radiance [W/(m^2 sr cm^-1)].	// transposed
 	int nr;							/// Number of ray paths.
-} obs_t; // ////////////////////////////////////////////////////////////////////
+} obs_t; ///////////////////////////////////////////////////////////////////////
 
 typedef float real_tblND_t;
 
-/*! Emissivity look-up tables. */
-typedef struct {
-
-	/*! Number of pressure levels. */
-	int32_t np[NG][ND];
-
-	/*! Number of temperatures. */
-	int32_t nt[NG][TBLNP][ND];
-
-	/*! Number of column densities. */
-	int32_t nu[NG][TBLNP][TBLNT][ND];
-
-	/*! Pressure [hPa]. */
-	double p[NG][TBLNP][ND];
-
-	/*! Temperature [K]. */
-	double t[NG][TBLNP][TBLNT][ND];
-
-	/*! Column density [molecules/cm^2]. */
-	real_tblND_t u[NG][TBLNP][TBLNT][TBLNU][ND];
-    
-	/*! Emissivity. */
-	real_tblND_t eps[NG][TBLNP][TBLNT][TBLNU][ND];
-
-	/*! Source function radiance [W/(m^2 sr cm^-1)]. */
-	double sr[TBLNS][ND];
-
-	/*! Source function temperature [K]. */
-	double st[TBLNS];
-
+typedef struct {  /// Emissivity look-up tables. ///////////////////////////////
+	int32_t np[NG][ND];                             /// Number of pressure levels.
+	int32_t nt[NG][TBLNP][ND];                      /// Number of temperatures.
+	int32_t nu[NG][TBLNP][TBLNT][ND];               /// Number of column densities.
+	double p[NG][TBLNP][ND];                        /// Pressure [hPa].
+	double t[NG][TBLNP][TBLNT][ND];                 /// Temperature [K].
+	real_tblND_t u[NG][TBLNP][TBLNT][TBLNU][ND];    /// Column density [molecules/cm^2].
+	real_tblND_t eps[NG][TBLNP][TBLNT][TBLNU][ND];  /// Emissivity.
+	double sr[TBLNS][ND];                           /// Source function radiance [W/(m^2 sr cm^-1)].
+	double st[TBLNS];                               /// Source function temperature [K].
 #ifdef  FAST_INVERSE_OF_U
-	/*! u0inv[g][p][t][d] * u[g][p][t][0][d] == 1 must hold! */ // FAST_INVERSE_OF_U
-	double u0inv[NG][TBLNP][TBLNT][ND];                         // FAST_INVERSE_OF_U
-    /*! We assume a logarithmic increment by 2^(1/6) */         // FAST_INVERSE_OF_U
+	/// u0inv[g][p][t][d] * u[g][p][t][0][d] == 1 must hold!  /// FAST_INVERSE_OF_U
+	double u0inv[NG][TBLNP][TBLNT][ND];                       /// FAST_INVERSE_OF_U
+  /// We assume a logarithmic increment by 2^(1/6)          /// FAST_INVERSE_OF_U
 #endif
-
-} tbl_t;
+} tbl_t; ///////////////////////////////////////////////////////////////////////
 #endif
