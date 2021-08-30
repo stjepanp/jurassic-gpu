@@ -32,5 +32,5 @@ http://www.fz-juelich.de/ias/jsc/jurassic
 */
 #pragma once
 
-#include "jurassic_structs.h"
+#include "new_header.h"
 #include "jurassic_functions.h"
