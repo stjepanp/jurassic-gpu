@@ -1,19 +1,30 @@
 #ifndef JR_SCATTER_GPU_H
 #define JR_SCATTER_GPU_H
 
+#include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <assert.h>
 #include <sys/time.h>
-#include <gsl/gsl_math.h>
 #include <gsl/gsl_blas.h>
+#include <gsl/gsl_complex_math.h>
 #include <gsl/gsl_const_mksa.h>
 #include <gsl/gsl_const_num.h>
+#include <gsl/gsl_eigen.h>
+#include <gsl/gsl_fit.h>
 #include <gsl/gsl_linalg.h>
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_randist.h>
+#include <gsl/gsl_sort.h>
+#include <gsl/gsl_spline.h>
 #include <gsl/gsl_statistics.h>
+
+#ifdef MPI
+#include <mpi.h>
+#endif
+
 
 /* ------------------------------------------------------------
    Macros...
@@ -84,18 +95,6 @@
   printf("Print (%s, %s, l%d): %s= "format"\n",                         \
          __FILE__, __func__, __LINE__, #var, var);
 
-/* 
-  TODO:
-    Add macros:
-      ! Start or stop a timer. 
-      #define TIMER(name, mode) timer(name, __FILE__, __func__, __LINE__, mode)
-      
-      #define __deprecated__ __attribute__((deprecated))
-
-      Also, take a look at the end of jurassic-gpu/src/jurassic.h file!
-
-*/
-
 //Added:
 
 /*! Start or stop a timer. */
@@ -152,16 +151,6 @@
 
 /* Temperature of the Sun [K]. */
 #define TSUN 5780.
-
-/*
-  TODO: Add constants: 
-    ! Standard gravity [m/s^2]. 
-    #define G0 9.80665
-
-    ! Standard temperature [K].
-    #define T0 273.15
-*/
-
 
 //Added:
 /* Standard gravity [m/s^2]. */
@@ -254,16 +243,6 @@
 /* Maximum number of refractive indices. */
 #define REFMAX 5000
 
-/* 
-  TODO: Add dimensions: 
-    ! Maximum number of RFM spectral grid points. 
-    #define RFMNPTS 10000000
-
-    ! Maximum length of RFM data lines. 
-    #define RFMLINE 100000
-*/
-
-
 //Added:
 
 /* Maximum number of RFM spectral grid points. */
@@ -301,6 +280,19 @@
 /* ------------------------------------------------------------
 	 Structs...
 	 ------------------------------------------------------------ */
+typedef struct {
+    void* input;
+    void* result;
+    int ir;
+} queue_item_t;
+
+typedef struct {
+    queue_item_t* items;
+    int capacity;
+    int begin;
+    int end;
+    int state;
+} queue_t;
 
 typedef struct { /// Atmospheric data. /////////////////////////////////////////
 	double time[NP];			 /// Time (seconds since 2000-01-01T00:00Z).
@@ -356,6 +348,19 @@ typedef struct { /// Forward model control parameters. /////////////////////////
   int read_binary;        /// binary IO
   int write_binary;       /// binary IO
   int gpu_nbytes_shared_memory; /// Shared memory controler for GPU kernels
+  
+  /// ---------------- for scattering ------------------
+  int sca_n;              /// Number of scattering models.
+  int sca_mult;           /// Number of recursions for multiple scattering.
+                          /// (0=no scattering, 1=single scattering, 2<=multiple scattering)
+  char sca_ext[LEN];      /// Extinction coefficient type if sca_mult=0
+  double transs;          /// Sampling step for transition layers [km].
+  double retnn_zmin;      /// Minimum altitude for particle [km].
+  double retnn_zmax;      /// Maximum altitude for particle retrieval [km].
+  int retnn;              /// Retrieval of particle concentration (0=no, 1=yes)
+  int retrr;              /// Retrieval of particle size (0=no, 1=yes)
+  int retss;              /// Retrieval of particle size distribution width (0=no, 1=yes)
+  queue_t queue;          /// work queue architecture introduced for GPU acceleration
 } ctl_t; ///////////////////////////////////////////////////////////////////////
 
 typedef struct {  /// Point on the Line-of-sight data without storing //////////
@@ -412,4 +417,83 @@ typedef struct {  /// Transposed emissivity look-up tables. - GPU version  /////
   /// We assume a logarithmic increment by 2^(1/6)          /// FAST_INVERSE_OF_U
 #endif
 } trans_table_t; ///////////////////////////////////////////////////////////////////////
+
+/// --------------------------------- for scattering -----------------------------------
+typedef struct { /// Emissivity look-up tables. ////////////////////////////////////////
+  int np[NGMAX][NDMAX];                                 /// Number of pressure levels.
+  int nt[NGMAX][NDMAX][TBLNPMAX];                       /// Number of temperatures.
+  int nu[NGMAX][NDMAX][TBLNPMAX][TBLNTMAX];             /// Number of column densities.
+  double p[NGMAX][NDMAX][TBLNPMAX];                     /// Pressure [hPa].
+  double t[NGMAX][NDMAX][TBLNPMAX][TBLNTMAX];           /// Temperature [K].
+  float u[NGMAX][NDMAX][TBLNPMAX][TBLNTMAX][TBLNUMAX];  /// Column density [molecules/cm^2].
+  float eps[NGMAX][NDMAX][TBLNPMAX][TBLNTMAX][TBLNUMAX];/// Emissivity.
+  double st[TBLNSMAX];                                  /// Source function temperature [K].
+  double sr[NDMAX][TBLNSMAX];                           /// Source function radiance [W/(m^2 sr cm^-1)].
+} tbl_t; ///////////////////////////////////////////////////////////////////////////////
+
+typedef struct { /// Line-of-sight data. ///////////////////////////////////////////////
+  int np;                 /// Number of LOS points.
+  double z[NLOS];         /// Altitude [km].
+  double lon[NLOS];       /// Longitude [deg].
+  double lat[NLOS];       /// Latitude [deg].
+  double p[NLOS];         /// Pressure [hPa].
+  double t[NLOS];         /// Temperature [K].
+  double q[NLOS][NGMAX];  /// Volume mixing ratio.
+  double k[NLOS][NWMAX];  /// Extinction [1/km].
+  int aeroi [NLOS];       /// Aerosol/cloud layer index
+  double aerofac[NLOS];   /// Aerosol/cloud layer scaling factor for transition layer
+  double tsurf;           /// Surface temperature [K].
+  double ds[NLOS];        /// Segment length [km].
+  double u[NLOS][NGMAX];  /// Column density [molecules/cm^2].
+} los_t; ///////////////////////////////////////////////////////////////////////////////
+
+typedef struct { /// Aerosol and Cloud properties. /////////////////////////////////////
+  /// Aerosol and cloud input parameters
+  int nm;                         /// Number of aerosol/cloud models
+  double top_mod[SCAMOD];         /// Model top altitude [km]
+  double bottom_mod[SCAMOD];      /// Model bottom altitude [km]
+  double trans_mod[SCAMOD];       /// Model transition layer thickness [km]
+  char type[SCAMOD][LEN];         /// Optical properties source
+  char filepath[SCAMOD][LEN];     /// Refractive index file or optical properties file
+  double nn[SCAMOD];              /// Number concentration [cm-3] or extinction coefficient [km-1]
+  double rr[SCAMOD];              /// Median radius of log-normal size distribution [mum]
+  double ss[SCAMOD];              /// Width of log-normal size distribution
+  /// Aerosol and cloud optical properties for radiative transfer
+  int nl;                         /// Number of aerosol/cloud layers
+  int nmod[NLMAX];                /// Number of modes per layer
+  double top[NLMAX];              /// Layer top altitude [km]
+  double bottom[NLMAX];           /// Layer bottom altitude [km]
+  double trans[NLMAX];            /// Transition layer thickness [km]
+  double beta_e[NLMAX][NDMAX];    /// Extinction coefficient [1/km]
+  double beta_s[NLMAX][NDMAX];    /// Scattering coefficient [1/km]
+  double beta_a[NLMAX][NDMAX];    /// Absorption coefficient [1/km]
+  double p[NLMAX][NDMAX][NTHETA]; /// Phase function for each layer, angle and wave number 
+ } aero_t; /////////////////////////////////////////////////////////////////////////////
+
+typedef struct { /// Retrieval control parameters. /////////////////////////////////////
+  char dir[LEN];            /// Working directory.
+  int kernel_recomp;        /// Recomputation of kernel matrix (number of iterations).
+  int conv_itmax;           /// Maximum number of iterations.
+  double conv_dmin;         /// Minimum normalized step size in state space.
+  double resmax;            /// Threshold for radiance residuals [%] (-999 to skip filtering).
+  int err_ana;              /// Carry out error analysis (0=no, 1=yes).
+  double err_formod[NDMAX]; /// Forward model error [%].
+  double err_noise[NDMAX];  /// Noise error [W/(m^2 sr cm^-1)].
+  double err_press;         /// Pressure error [%].
+  double err_press_cz;      /// Vertical correlation length for pressure error [km].
+  double err_press_ch;      /// Horizontal correlation length for pressure error [km].
+  double err_temp;          /// Temperature error [K].
+  double err_temp_cz;       /// Vertical correlation length for temperature error [km].
+  double err_temp_ch;       /// Horizontal correlation length for temperature error [km].
+  double err_nn;            /// Particle concentration error [cm-3].
+  double err_rr;            /// Particle radius error [m-6].
+  double err_ss;            /// Particle size distribution width error.
+  double err_q[NGMAX];      /// Volume mixing ratio error [%].
+  double err_q_cz[NGMAX];   /// Vertical correlation length for volume mixing ratio error [km].
+  double err_q_ch[NGMAX];   /// Horizontal correlation length for volume mixing ratio error [km].
+  double err_k[NWMAX];      /// Extinction error [1/km].
+  double err_k_cz[NWMAX];   /// Vertical correlation length for extinction error [km]. 
+  double err_k_ch[NWMAX];   /// Horizontal correlation length for extinction error [km].
+} ret_t; 
+
 #endif
