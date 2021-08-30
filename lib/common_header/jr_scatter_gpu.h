@@ -1,5 +1,5 @@
-#ifndef JURASSIC_H
-#define JURASSIC_H
+#ifndef JR_SCATTER_GPU_H
+#define JR_SCATTER_GPU_H
 
 #include <math.h>
 #include <stdio.h>
