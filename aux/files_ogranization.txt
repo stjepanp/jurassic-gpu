@@ -201,3 +201,167 @@ Not very important files for the forward model, mainly used for preparation and 
   raytrace.c
   retrieval.c
   tab2bin.c
+
+/*
+0.  call_formod (formod.c:104)
+1.    formod (forwardmodel.c:13)
+2.      formod_pencil (forwardmodel.c:169)    |  called obs->nr times
+3.        raytrace (lineofsight.c:5)              |  called 1 time    
+4. abc    [intpol_tbl, formod_continua, srcfunc_planck] |  in 1..los->np
+5.        srcfunc_sca (scatter.c:642)                   |      loop
+6.          srcfunc_sca_1d (scatter.c:665)      |  called if ctl->ip == 1, 
+                                                   else 3d is called 
+recursoin ->  formod_pencil (forwardmodel.c:169)   |  called nalpha (28?) times 
+*/
+
+// Structs with some important variables: (for more information see jurassic.h)
+/* 
+ctl_t: Forward model control parameters.
+  Number of emitters: ng
+  Number of radiance channels: nd
+  Number of spectral windows: nw
+
+los_t: Line-of-sight data. 
+  Number of LOS points: np
+  Altitude, Longitude, Pressure, Temperature, Volume mixing ratio...
+
+obs_t: Observation geometry and radiance data. 
+  Number of ray paths: nr
+ 
+tbl_t: Emissivity look-up tables. 
+  Number of pressure levels: np[NGMAX][NDMAX]
+  Number of temperatures: nt[NGMAX][NDMAX][TBLNPMAX]
+  Number of column densities: nu[NGMAX][NDMAX][TBLNPMAX][TBLNTMAX]
+
+aero_t: Aerosol and Cloud properties.
+  Aerosol and cloud input parameters
+    Number of aerosol/cloud models: nm
+  Aerosol and cloud optical properties for radiative transfer
+    Number of aerosol/cloud layers: nl
+
+atm_t: Atmospheric data. 
+  Number of data points: np 
+
+ret_t: Retrieval control parameters.
+  ...
+*/
+
+/*0. Call forward model, called in the main function of program. */
+/*Optional are TASK, DIRLIST (Section 3.4) and AEROFILE (Section 3.1). The option
+TASK c calculates the contribution of each specified trace gas separately. The output
+files are named rad.tab.GAS (e.g. rad.tab.H2O) and the format is the same as for the
+rad.tab output file in Section 4.
+The option DIRLIST provides a file with directories. Each directory must contain an
+observation file, atmosphere file and optionally an aerosol file with the same name, 
+but different content. The DIRLIST is a feature that is used to distribute large 
+simulation/retrieval sets among multiple cores, e.g. on a supercomputer.
+The option AEROFILE is required for scattering simulations. The AEROFILE contains 
+the aerosol/cloud altitude information and the corresponding microphysical
+cloud/aerosol properties. */
+// "return" -- radfile - where radiance data is saved, in the same format as obs data
+void call_formod(ctl_t *ctl,
+    const char *wrkdir,
+    const char *obsfile,
+    const char *atmfile,
+    const char *radfile,
+    const char *task,
+    const char *aerofile);
+
+/*1.  Determine ray paths and compute radiative transfer. */
+// "return" -- radiance via obs->rad[id][ir], 
+//             id for radiance channel, ir for ray path
+void formod(ctl_t *ctl,
+	    atm_t *atm,
+	    obs_t *obs,
+	    aero_t *aero);
+
+/*2.  Compute radiative transfer for a pencil beam. */
+/* args -- scattering - ctl->sca_mult - Number of recursions for multiple scattering: 
+                      (0=no scattering, 1=single scattering, 2<=multiple scattering)
+           ir - index of ray path */
+// "return" -- radiance via obs->rad[id][ir] 
+void formod_pencil(ctl_t *ctl,
+		   atm_t *atm,
+ 		   obs_t *obs,
+ 		   aero_t *aero,
+ 		   int scattering,
+ 		   int ir);
+
+/*3.  Do ray-tracing to determine LOS (line of sight). */
+// args -- ir - index of ray path 
+// "return" -- los, calculated in steps, refractivity is important 
+void raytrace(ctl_t *ctl,
+	      atm_t *atm,
+	      obs_t *obs,
+	      aero_t *aero,
+	      los_t *los,
+	      int ir);
+
+/*4. a) Get transmittance from look-up tables. */
+// args -- ip - index of LOS segment 
+// "return" -- tau_path[ig][id]    <--- this may be declared in intpol_tbl?
+//          -- tau_seg[id] - segment transmittance for every channel
+void intpol_tbl(ctl_t *ctl,
+		tbl_t *tbl,
+		los_t *los,
+		int ip,
+		double tau_path[NGMAX][NDMAX],
+		double tau_seg[NDMAX]);
+
+/*4. b) Compute absorption coefficient of continua. */
+// args -- ip - index of LOS segment  
+// return -- beta[id] - value of beta functoin for every channel
+void formod_continua(ctl_t *ctl,
+		     los_t *los,
+		     int ip,
+		     double *beta);
+
+/*4. c) Compute Planck source function. */
+// args -- t - temeprature, from los->t[ip] which is calcualted with
+//                          inpol_atm_geo function in raytrace 
+// return -- src[id] - interpolated Planck function value for every channel 
+void srcfunc_planck(ctl_t *ctl,
+		    double t,
+		    double *src);
+
+/* 5. Compute scattering source. */
+
+// args -- ctl - forward model control parameters
+//      -- atm - atmospheric data
+//      -- aero - aerosol and cloud properties
+//      -- sec - time in sec, from obs->time[ir], ir is index of ray path 
+//      -- x - LOS segment endpoint (in 3d, in cart format)
+//      -- dx - vector of LOS segment
+//      -- il - aerosol/cloud layer index of this LOS segment
+//      -- scattering - Number of recursions for multiple scattering: 
+//                      (0=no scattering, 1=single scattering, 2<=multiple scattering)
+// return -- src_sca[id] - for every channel
+void srcfunc_sca(ctl_t *ctl,
+		 atm_t *atm,
+		 aero_t *aero,
+		 double sec,
+		 double *x,
+		 double *dx,
+		 int il,
+		 double *src_sca,
+		 int scattering);
+
+/* 6. 1d - Compute scattering source (thermal emissions). */
+void srcfunc_sca_1d(ctl_t *ctl,
+		    atm_t *atm,
+		    aero_t *aero,
+		    double *x,
+		    double *dx,
+		    int il,
+		    double *src_sca,
+		    int scattering);
+
+/* New: 3d - Compute scattering source (thermal emissions). */
+void srcfunc_sca_3d(ctl_t *ctl,
+		    atm_t *atm,
+		    aero_t *aero,
+		    double *x,
+		    double *dx,
+		    int il,
+		    double *src_sca,
+		    int scattering);
