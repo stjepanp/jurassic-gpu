@@ -897,14 +897,14 @@ void read_atm(char const *dirname, char const *filename, ctl_t *ctl, atm_t *atm)
 	// Read line
 	while (fgets(line, LEN, in)) {
 		// Read data
-		TOK(line, tok, "%lg", atm->time[atm->np], &saveptr);
-		TOK(NULL, tok, "%lg", atm->z[atm->np], &saveptr);
-		TOK(NULL, tok, "%lg", atm->lon[atm->np], &saveptr);
-		TOK(NULL, tok, "%lg", atm->lat[atm->np], &saveptr);
-		TOK(NULL, tok, "%lg", atm->p[atm->np], &saveptr);
-		TOK(NULL, tok, "%lg", atm->t[atm->np], &saveptr);
-		for(ig = 0; ig < ctl->ng; ig++) TOK(NULL, tok, "%lg", atm->q[ig][atm->np], &saveptr);
-		for(iw = 0; iw < ctl->nw; iw++) TOK(NULL, tok, "%lg", atm->k[iw][atm->np], &saveptr);
+		TOK_FIVE_ARGS(line, tok, "%lg", atm->time[atm->np], &saveptr);
+		TOK_FIVE_ARGS(NULL, tok, "%lg", atm->z[atm->np], &saveptr);
+		TOK_FIVE_ARGS(NULL, tok, "%lg", atm->lon[atm->np], &saveptr);
+		TOK_FIVE_ARGS(NULL, tok, "%lg", atm->lat[atm->np], &saveptr);
+		TOK_FIVE_ARGS(NULL, tok, "%lg", atm->p[atm->np], &saveptr);
+		TOK_FIVE_ARGS(NULL, tok, "%lg", atm->t[atm->np], &saveptr);
+		for(ig = 0; ig < ctl->ng; ig++) TOK_FIVE_ARGS(NULL, tok, "%lg", atm->q[ig][atm->np], &saveptr);
+		for(iw = 0; iw < ctl->nw; iw++) TOK_FIVE_ARGS(NULL, tok, "%lg", atm->k[iw][atm->np], &saveptr);
 		// Increment data point counter
 		if((++atm->np) > NP) ERRMSG("Too many data points!");
 	}
@@ -1049,18 +1049,18 @@ void read_obs(char const *dirname, char const *filename, ctl_t *ctl, obs_t *obs)
         fclose(in); return;
     } // checkmode
 	while (fgets(line, LEN, in)) {			// Read line
-		TOK(line, tok, "%lg", obs->time[obs->nr], &saveptr);		// Read data
-		TOK(NULL, tok, "%lg", obs->obsz[obs->nr], &saveptr);
-		TOK(NULL, tok, "%lg", obs->obslon[obs->nr], &saveptr);
-		TOK(NULL, tok, "%lg", obs->obslat[obs->nr], &saveptr);
-		TOK(NULL, tok, "%lg", obs->vpz[obs->nr], &saveptr);
-		TOK(NULL, tok, "%lg", obs->vplon[obs->nr], &saveptr);
-		TOK(NULL, tok, "%lg", obs->vplat[obs->nr], &saveptr);
-		TOK(NULL, tok, "%lg", obs->tpz[obs->nr], &saveptr);
-		TOK(NULL, tok, "%lg", obs->tplon[obs->nr], &saveptr);
-		TOK(NULL, tok, "%lg", obs->tplat[obs->nr], &saveptr);
-		for(int id = 0; id < ctl->nd; id++) TOK(NULL, tok, "%lg", obs->rad[obs->nr][id], &saveptr);
-		for(int id = 0; id < ctl->nd; id++) TOK(NULL, tok, "%lg", obs->tau[obs->nr][id], &saveptr);
+		TOK_FIVE_ARGS(line, tok, "%lg", obs->time[obs->nr], &saveptr);		// Read data
+		TOK_FIVE_ARGS(NULL, tok, "%lg", obs->obsz[obs->nr], &saveptr);
+		TOK_FIVE_ARGS(NULL, tok, "%lg", obs->obslon[obs->nr], &saveptr);
+		TOK_FIVE_ARGS(NULL, tok, "%lg", obs->obslat[obs->nr], &saveptr);
+		TOK_FIVE_ARGS(NULL, tok, "%lg", obs->vpz[obs->nr], &saveptr);
+		TOK_FIVE_ARGS(NULL, tok, "%lg", obs->vplon[obs->nr], &saveptr);
+		TOK_FIVE_ARGS(NULL, tok, "%lg", obs->vplat[obs->nr], &saveptr);
+		TOK_FIVE_ARGS(NULL, tok, "%lg", obs->tpz[obs->nr], &saveptr);
+		TOK_FIVE_ARGS(NULL, tok, "%lg", obs->tplon[obs->nr], &saveptr);
+		TOK_FIVE_ARGS(NULL, tok, "%lg", obs->tplat[obs->nr], &saveptr);
+		for(int id = 0; id < ctl->nd; id++) TOK_FIVE_ARGS(NULL, tok, "%lg", obs->rad[obs->nr][id], &saveptr);
+		for(int id = 0; id < ctl->nd; id++) TOK_FIVE_ARGS(NULL, tok, "%lg", obs->tau[obs->nr][id], &saveptr);
 		if((++obs->nr) > NR) ERRMSG("Too many rays!");	// Increment counter
 	}
 	fclose(in);

@@ -109,11 +109,18 @@
 
 /*! Read string tokens. */
 // in scatter version there were 4 parameters
-#define TOK(line, tok, format, var, saveptr) {			\
+#define TOK_FIVE_ARGS(line, tok, format, var, saveptr) {			\
 	if(((tok)=strtok_r((line), " \t",saveptr))) {			\
 		if(sscanf(tok, format, &(var))!=1) continue;	\
 	} else ERRMSG("Error while reading!");		\
 }
+
+/* Read string tokens. */
+#define TOK(line, tok, format, var) {			\
+    if(((tok)=strtok((line), " \t"))) {			\
+      if(sscanf(tok, format, &(var))!=1) continue;	\
+    } else ERRMSG("Error while reading!");		\
+  }
 
 /* ------------------------------------------------------------
    Redefinable constants...
