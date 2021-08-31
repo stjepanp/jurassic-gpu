@@ -1,0 +1,9 @@
++ '[' -z '' ']'
++ case "$-" in
++ __lmod_vx=x
++ '[' -n x ']'
++ set +x
+Shell debugging restarted
++ unset __lmod_vx
++ cp out-gpu.txt prev-out.txt
++ cp err-gpu.txt prev-err.txt

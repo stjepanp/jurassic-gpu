@@ -1,0 +1,13 @@
+Shell debugging temporarily silenced: export LMOD_SH_DBG_ON=1 for this output (/p/software/jusuf/lmod/8.2.10/init/bash)
+CPU printing vector... 1 2 3 4 5 6 7 
+CPU printing vector... 2 4 6 8 10 12 14 
+CPU multiplication...
+CPU printing vector... 2 8 18 32 50 72 98 
+CPU printing vector... 2 4 6 8 10 12 14 
+GPU addition...
+CUDA.. printing vector
+4 12 24 40 60 84 112 
+CUDA.. printing vector
+2 4 6 8 10 12 14 
+CPU printing vector... 4 12 24 40 60 84 112 
+CPU printing vector... 2 4 6 8 10 12 14 
