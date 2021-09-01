@@ -12,7 +12,7 @@ LIBDIR += -L ../lib/build/lib
 
 # Include directories...
 INCDIR =
-INCDIR += -I ../lib/build/include
+#INCDIR += -I ../lib/build/include
 INCDIR += -I ../lib/common_header  
 
 # Linking...
@@ -86,7 +86,7 @@ ifeq ($(strip $(ENABLEGPU)),)
 		CFLAGS += -static
 	endif
 else
-	OBJECTS += GPUdrivers.o
+	OBJECTS += GPUdrivers.o interface.o
 	CFEAFLAGS += -DhasGPU
 	LDFLAGS += -lcudart
  	LIBDIR += -L $(CUDA_PATH)/lib64 
@@ -95,6 +95,7 @@ endif
 # Dependencies...
 DEP = jurassic.d CPUdrivers.d GPUdrivers.d $(EXEC:%=%.d)
 
+MYLIB = libutil.a
 # -----------------------------------------------------------------------------
 # Targets...
 # -----------------------------------------------------------------------------
@@ -113,6 +114,10 @@ bak:
 
 indent:
 	indent -br -brf -brs -bfda -ce -cdw -lp -npcs -npsl *.c *.h
+
+$(MYLIB): $(OBJECTS) 
+	ar rc $@ $(OBJECTS)
+		ranlib $@
 
 $(EXC): %: %.c $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)

@@ -81,6 +81,9 @@ all: $(EXC)
 $(EXC): %: %.c $(OBJECTS) ../jurassic-gpu/libutil.a
 	$(CC) $(CFLAGS) -o $@ $@.c $(OBJECTS) $(LDFLAGS)
 
+../jurassic-gpu/libutil.a:
+	make libutil.a -C ../jurassic-gpu
+
 # Generic rules for all object files...
 %.o:%.c %.d Makefile
 	$(CC) $(CFLAGS) -c $<

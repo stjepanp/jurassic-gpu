@@ -10,6 +10,6 @@ planck
 hash
 time2jsec
 memoryinfo
-
+libutil.a
 *.d
 *.o
