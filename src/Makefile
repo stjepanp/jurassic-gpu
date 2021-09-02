@@ -78,7 +78,7 @@ CUFLAGS += -Xptxas -v
 LDFLAGS = $(LIBDIR) -lgsl -lgslcblas -lm -lstdc++
 
 # Objects...
-OBJECTS = jurassic.o CPUdrivers.o
+OBJECTS = jurassic.o CPUdrivers.o interface.o
 
 ifeq ($(strip $(ENABLEGPU)),)
 	# Linking...
@@ -86,7 +86,7 @@ ifeq ($(strip $(ENABLEGPU)),)
 		CFLAGS += -static
 	endif
 else
-	OBJECTS += GPUdrivers.o interface.o
+	OBJECTS += GPUdrivers.o
 	CFEAFLAGS += -DhasGPU
 	LDFLAGS += -lcudart
  	LIBDIR += -L $(CUDA_PATH)/lib64 
@@ -104,10 +104,10 @@ all: $(EXC)
 
 .PHONY: allclean clean
 clean:
-	rm -f *.o *~ *.d
+	rm -f *.o *~ *.d libutil.a
 
 allclean: clean
-	rm -f $(EXC)
+	rm -f $(EXC) libutil.a
 
 bak:
 	tar chzf jurassic-gpu_`date +"%y%m%d%H%M"`.tgz Makefile *.c *.h
@@ -117,7 +117,7 @@ indent:
 
 $(MYLIB): $(OBJECTS) 
 	ar rc $@ $(OBJECTS)
-		ranlib $@
+	ranlib $@
 
 $(EXC): %: %.c $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)

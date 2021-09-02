@@ -258,7 +258,8 @@
     
 	__host__
 	void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs) {
-		static ctl_t *ctl_G=NULL;
+    printf("formod_GPU was called!\n");
+    static ctl_t *ctl_G=NULL;
 		static trans_table_t *tbl_G=NULL;
 
 		static int numDevices = 0;

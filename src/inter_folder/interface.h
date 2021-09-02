@@ -3,14 +3,6 @@
 
 #include "jr_scatter_gpu.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-__host__ void print_obs_size(obs_t *a);
-
-#ifdef __cplusplus
-} //extern "C"
-#endif
+void formod_multiple_packages(ctl_t *ctl, atm_t *atm, obs_t *packages, int n); 
 
 #endif
