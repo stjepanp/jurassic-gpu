@@ -38,14 +38,14 @@ int main(
     ERRMSG("Give parameters: <ctl> <obs>");
 
   /* Read control parameters... */
-  read_ctl(argc, argv, &ctl);
-  t0 = scan_ctl(argc, argv, "T0", -1, "0", NULL);
-  t1 = scan_ctl(argc, argv, "T1", -1, "0", NULL);
-  dt = scan_ctl(argc, argv, "DT", -1, "1", NULL);
-  obsz = scan_ctl(argc, argv, "OBSZ", -1, "700", NULL);
-  lat0 = scan_ctl(argc, argv, "LAT0", -1, "-8.01", NULL);
-  lat1 = scan_ctl(argc, argv, "LAT1", -1, "8.01", NULL);
-  dlat = scan_ctl(argc, argv, "DLAT", -1, "0.18", NULL);
+  jur_read_ctl(argc, argv, &ctl);
+  t0 = jur_scan_ctl(argc, argv, "T0", -1, "0", NULL);
+  t1 = jur_scan_ctl(argc, argv, "T1", -1, "0", NULL);
+  dt = jur_scan_ctl(argc, argv, "DT", -1, "1", NULL);
+  obsz = jur_scan_ctl(argc, argv, "OBSZ", -1, "700", NULL);
+  lat0 = jur_scan_ctl(argc, argv, "LAT0", -1, "-8.01", NULL);
+  lat1 = jur_scan_ctl(argc, argv, "LAT1", -1, "8.01", NULL);
+  dlat = jur_scan_ctl(argc, argv, "DLAT", -1, "0.18", NULL);
 
   /* Create measurement geometry... */
   for (t = t0; t <= t1; t += dt)
@@ -58,7 +58,7 @@ int main(
     }
 
   /* Write observation data... */
-  write_obs(".", argv[2], &ctl, &obs);
+  jur_write_obs(".", argv[2], &ctl, &obs);
 
   return EXIT_SUCCESS;
 }

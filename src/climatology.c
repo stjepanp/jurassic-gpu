@@ -41,14 +41,14 @@ int main(
     ERRMSG("Give parameters: <ctl> <atm>");
 
   /* Read control parameters... */
-  read_ctl(argc, argv, &ctl);
-  t0 = scan_ctl(argc, argv, "T0", -1, "0", NULL);
-  t1 = scan_ctl(argc, argv, "T1", -1, "0", NULL);
-  dt = scan_ctl(argc, argv, "DT", -1, "1", NULL);
-  z0 = scan_ctl(argc, argv, "Z0", -1, "0", NULL);
-  z1 = scan_ctl(argc, argv, "Z1", -1, "90", NULL);
-  dz = scan_ctl(argc, argv, "DZ", -1, "1", NULL);
-  rand = (int)scan_ctl(argc, argv, "RAND", -1, "0", NULL);
+  jur_read_ctl(argc, argv, &ctl);
+  t0 = jur_scan_ctl(argc, argv, "T0", -1, "0", NULL);
+  t1 = jur_scan_ctl(argc, argv, "T1", -1, "0", NULL);
+  dt = jur_scan_ctl(argc, argv, "DT", -1, "1", NULL);
+  z0 = jur_scan_ctl(argc, argv, "Z0", -1, "0", NULL);
+  z1 = jur_scan_ctl(argc, argv, "Z1", -1, "90", NULL);
+  dz = jur_scan_ctl(argc, argv, "DZ", -1, "1", NULL);
+  rand = (int)jur_scan_ctl(argc, argv, "RAND", -1, "0", NULL);
   
   /* Set atmospheric grid... */
   for (t = t0; t <= t1; t += dt)
@@ -60,7 +60,7 @@ int main(
     }
 
   /* Interpolate climatological data... */
-  climatology(&ctl, &atm);
+  jur_climatology(&ctl, &atm);
 
   /* Random modifications of atmospheric profiles... */
   if(rand) {
@@ -78,7 +78,7 @@ int main(
   }
   
   /* Write data to disk... */
-  write_atm(".", argv[2], &ctl, &atm);
+  jur_write_atm(".", argv[2], &ctl, &atm);
 
   return EXIT_SUCCESS;
 }

@@ -24,13 +24,13 @@
 #include "jurassic.h"
 #include "jr_binary_tables_io.h" // jr_write_binary_tables, jr_read_binary_tables
 
-    double gravity(double const z, double const lat);
+    double jur_gravity(double const z, double const lat);
 //     {
 //         double const deg2rad = M_PI/180., x = sin(lat*deg2rad), y = sin(2*lat*deg2rad);
 //         return 9.780318*(1. + 0.0053024*x*x - 5.8e-6*y*y) - 3.086e-3*z;
 //     } // gravity
 
-	int locate(double const *xx, int const n, double const x); 
+	int jur_locate(double const *xx, int const n, double const x); 
 //     {
 //         int ilo = 0, ihi = n - 1, i = (n - 1) >> 1;
 //         if(xx[i] < xx[i + 1]) {
@@ -50,7 +50,7 @@
 //     } // locate
 
 // #define grd2rad (M_PI/180)
-	void geo2cart(double const alt, double const lon, double const lat, double x[]);
+	void jur_geo2cart(double const alt, double const lon, double const lat, double x[]);
 //     {
 // 		double const radius = alt + RE, clat = cos(lat*grd2rad);
 // 		x[0] = radius*clat*cos(lon*grd2rad);
@@ -64,7 +64,7 @@
 
 
 // /////////////////////////////////////////////////////////////////////////
-FILE* mkFile(char const* dn, char const* fn, char const* acc) {
+FILE* jur_mkFile(char const* dn, char const* fn, char const* acc) {
 	FILE* out;
 	char file[LEN];
 	if(dn) sprintf(file, "%s/%s", dn, fn);
@@ -73,16 +73,16 @@ FILE* mkFile(char const* dn, char const* fn, char const* acc) {
 	return out;
 }
 
-void shell(char const* cmd, char const* err) { if(system(cmd)) ERRMSG(err); }
+void jur_shell(char const* cmd, char const* err) { if(system(cmd)) ERRMSG(err); }
 
 //***************************************************************************
-void climatology(ctl_t const *ctl, atm_t *atm) {
+void jur_climatology(ctl_t const *ctl, atm_t *atm) {
     #include "climatology.tbl"
 	static int ig_co2 = -999;
 	double co2;
     double const *q[NG] = { NULL };
 	// Find emitter index of CO2
-	if (ig_co2 == -999) ig_co2 = find_emitter(ctl, "CO2");
+	if (ig_co2 == -999) ig_co2 = jur_find_emitter(ctl, "CO2");
 	// Identify variable
 	for(int ig = 0; ig < ctl->ng; ig++) {
 		q[ig] = NULL;
@@ -125,7 +125,7 @@ void climatology(ctl_t const *ctl, atm_t *atm) {
 	if (ctl->checkmode) return; // early return
 	
 	for(int ip = 0; ip < atm->np; ip++) {						// Loop over atmospheric data points
-		int iz = locate(z, 121, atm->z[ip]);					// Get altitude index
+		int iz = jur_locate(z, 121, atm->z[ip]);					// Get altitude index
 		atm->p[ip] = EXP(z[iz], pre[iz], z[iz + 1], pre[iz + 1], atm->z[ip]);	// Interpolate pressure
 		atm->t[ip] = LIN(z[iz], tem[iz], z[iz + 1], tem[iz + 1], atm->z[ip]);	// Interpolate temperature
 		for(int ig = 0; ig < ctl->ng; ig++) {					// Interpolate trace gases
@@ -141,7 +141,7 @@ void climatology(ctl_t const *ctl, atm_t *atm) {
 
 
 //***************************************************************************
-void copy_atm(ctl_t const *const ctl, atm_t * atm_dest, atm_t const *const atm_src, int const init) {
+void jur_copy_atm(ctl_t const *const ctl, atm_t * atm_dest, atm_t const *const atm_src, int const init) {
 	size_t s = (size_t) atm_src->np*sizeof(double);		// Data size
 	// Copy data
 	atm_dest->np = atm_src->np;
@@ -165,7 +165,7 @@ void copy_atm(ctl_t const *const ctl, atm_t * atm_dest, atm_t const *const atm_s
 }
 
 //***************************************************************************
-void copy_obs(ctl_t const *const ctl, obs_t *obs_dest, obs_t const *const obs_src, int const init) {
+void jur_copy_obs(ctl_t const *const ctl, obs_t *obs_dest, obs_t const *const obs_src, int const init) {
 	size_t s = (size_t) obs_src->nr *sizeof(double);
 	// Copy data
 	obs_dest->nr = obs_src->nr;
@@ -195,7 +195,7 @@ void copy_obs(ctl_t const *const ctl, obs_t *obs_dest, obs_t const *const obs_sr
 }
 
 //***************************************************************************
-int find_emitter(ctl_t const *ctl, char const *emitter) {
+int jur_find_emitter(ctl_t const *ctl, char const *emitter) {
 	for(int ig = 0; ig < ctl->ng; ig++) {
 		if(0 == strcasecmp(ctl->emitter[ig], emitter)) {
             if (ctl->checkmode) printf("# find_emitter %s at gas index %d\n", emitter, ig);
@@ -207,11 +207,11 @@ int find_emitter(ctl_t const *ctl, char const *emitter) {
 }
 
 //***************************************************************************
-inline double brightness(double rad, double nu) { return C2*nu/gsl_log1p(C1*gsl_pow_3(nu)/rad); }
+inline double jur_brightness(double rad, double nu) { return C2*nu/gsl_log1p(C1*gsl_pow_3(nu)/rad); }
 
 
 //***************************************************************************
-void formod_fov(ctl_t const *const ctl, obs_t *obs) {
+void jur_formod_fov(ctl_t const *const ctl, obs_t *obs) {
 	static double dz[NSHAPE], w[NSHAPE];
 	static int init = 0, n;
 	obs_t obs2;
@@ -219,9 +219,9 @@ void formod_fov(ctl_t const *const ctl, obs_t *obs) {
 	if(ctl->fov[0] == '-') return;							// Do not take into account FOV
 	if(!init) {										// Initialize FOV data
 		init = 1;
-		n = read_shape(ctl->fov, dz, w, ctl->checkmode);
+		n = jur_read_shape(ctl->fov, dz, w, ctl->checkmode);
 	}
-	copy_obs(ctl, &obs2, obs, 0);								// Copy observation data
+	jur_copy_obs(ctl, &obs2, obs, 0);								// Copy observation data
 	for(int ir = 0; ir < obs->nr; ir++) {							// Loop over ray paths
 		int nz = 0;
 		for(int ir2 = GSL_MAX(ir - NFOV, 0); ir2 < GSL_MIN(ir + 1 + NFOV, obs->nr); ir2++)	// Get radiance and transmittance profiles
@@ -242,7 +242,7 @@ void formod_fov(ctl_t const *const ctl, obs_t *obs) {
 		}
 		for(int i = 0; i < n; i++) {
 			zfov = obs->vpz[ir] + dz[i];
-			const int idx = locate(z, nz, zfov);
+			const int idx = jur_locate(z, nz, zfov);
 			for(int id = 0; id < ctl->nd; id++) {
 				obs->rad[ir][id] += w[i]*LIN(z[idx], rad[idx][id], z[idx + 1], rad[idx + 1][id], zfov);
 				obs->tau[ir][id] += w[i]*LIN(z[idx], tau[idx][id], z[idx + 1], tau[idx + 1][id], zfov);
@@ -260,27 +260,27 @@ void formod_fov(ctl_t const *const ctl, obs_t *obs) {
 
 
 //***************************************************************************
-void hydrostatic(ctl_t const *const ctl, atm_t *atm) {
+void jur_hydrostatic(ctl_t const *const ctl, atm_t *atm) {
 	if(ctl->hydz < 0) return; // Check reference height
     if (ctl->checkmode) { printf("# apply hydrostatic equation to individual profiles\n"); return; }
 	double lat0 = -999, lon0 = -999;
 	int ip0 = -999;
 	for(int ip = 0; ip < atm->np; ip++)		// Apply hydrostatic equation to individual profiles
 		if((atm->lon[ip] != lon0) || (atm->lat[ip] != lat0)) {
-			if(ip > 0) hydrostatic_1d(ctl, atm, ip0, ip);
+			if(ip > 0) jur_hydrostatic_1d(ctl, atm, ip0, ip);
 			lon0 = atm->lon[ip];
 			lat0 = atm->lat[ip];
 			ip0 = ip;
 		}
-	hydrostatic_1d(ctl, atm, ip0, atm->np);
+	jur_hydrostatic_1d(ctl, atm, ip0, atm->np);
 }
 
 //***************************************************************************
-void hydrostatic_1d(ctl_t const *const ctl, atm_t *atm, int const ip0, int const ip1) {
+void jur_hydrostatic_1d(ctl_t const *const ctl, atm_t *atm, int const ip0, int const ip1) {
 	static int ig_h2o = -999;
 	double dzmin = 1e99, e = 0, mmair = 28.96456e-3, mmh2o = 18.0153e-3;
 	int ipref = 0, ipts = 20;
-	if(ig_h2o == -999) ig_h2o = find_emitter(ctl, "H2O");					// Determine emitter index of H2O
+	if(ig_h2o == -999) ig_h2o = jur_find_emitter(ctl, "H2O");					// Determine emitter index of H2O
 	for(int ip = ip0; ip < ip1; ip++)							// Find air parcel next to reference height
 		if(fabs(atm->z[ip] - ctl->hydz) < dzmin) {
 			dzmin = fabs(atm->z[ip] - ctl->hydz);
@@ -291,7 +291,7 @@ void hydrostatic_1d(ctl_t const *const ctl, atm_t *atm, int const ip0, int const
 		for(int i = 0; i < ipts; i++) {
 			const double z = LIN(0.0, atm->z[ip - 1], ipts - 1.0, atm->z[ip], (double) i);
 			if(ig_h2o >= 0) e = LIN(0.0, atm->q[ig_h2o][ip - 1], ipts - 1.0, atm->q[ig_h2o][ip], (double) i);
-			mean += (e*mmh2o + (1 - e)*mmair)*gravity(z, atm->lat[ipref])/GSL_CONST_MKSA_MOLAR_GAS/LIN(0.0, atm->t[ip - 1], ipts - 1.0, atm->t[ip], (double) i)/ipts;
+			mean += (e*mmh2o + (1 - e)*mmair)*jur_gravity(z, atm->lat[ipref])/GSL_CONST_MKSA_MOLAR_GAS/LIN(0.0, atm->t[ip - 1], ipts - 1.0, atm->t[ip], (double) i)/ipts;
 		}
 		atm->p[ip] = exp(log(atm->p[ip - 1]) - mean*1000*(atm->z[ip] - atm->z[ip - 1]));		// Compute p(z,T)
 	}
@@ -300,7 +300,7 @@ void hydrostatic_1d(ctl_t const *const ctl, atm_t *atm, int const ip0, int const
 		for(int i = 0; i < ipts; i++) {
 			const double z = LIN(0.0, atm->z[ip + 1], ipts - 1.0, atm->z[ip], (double) i);
 			if(ig_h2o >= 0) e = LIN(0.0, atm->q[ig_h2o][ip + 1], ipts - 1.0, atm->q[ig_h2o][ip], (double) i);
-			mean += (e*mmh2o + (1 - e)*mmair)*gravity(z, atm->lat[ipref])/GSL_CONST_MKSA_MOLAR_GAS/LIN(0.0, atm->t[ip + 1], ipts - 1.0, atm->t[ip], (double) i)/ipts;
+			mean += (e*mmh2o + (1 - e)*mmair)*jur_gravity(z, atm->lat[ipref])/GSL_CONST_MKSA_MOLAR_GAS/LIN(0.0, atm->t[ip + 1], ipts - 1.0, atm->t[ip], (double) i)/ipts;
 		}
 		atm->p[ip] = exp(log(atm->p[ip + 1]) - mean*1000*(atm->z[ip] - atm->z[ip + 1]));		// Compute p(z,T)
 	}
@@ -308,7 +308,10 @@ void hydrostatic_1d(ctl_t const *const ctl, atm_t *atm, int const ip0, int const
 
 
 //***************************************************************************
-void init_tbl(ctl_t const *ctl, trans_table_t *tbl) {
+
+void jur_init_tbl(ctl_t const *ctl, trans_table_t *tbl) {
+    strcpy(ctl->jur_tblbase, "/p/fastdata/slmet/slmet111/model_data/jurassic/tab/crista-nf/ascii_785_964/crista_nf"); //has to be changed, ofc
+    printf("DEBUG ctl->jur_tblbase = %s\n", ctl->jur_tblbase);
     if (ctl->read_binary) {
         int const binary_reading_status = jr_read_binary_tables(tbl, ctl);
         if (0 == binary_reading_status) {
@@ -331,10 +334,10 @@ void init_tbl(ctl_t const *ctl, trans_table_t *tbl) {
           
 			char filename[LEN];
 #ifdef      DIRECTORY_WITH_GAS_NAME
-			sprintf(filename, "%s/%s_%s/boxcar_%.4f_%s.tab", ctl->tblbase, 
-                    ctl->tblbase, ctl->emitter[ig], ctl->nu[id], ctl->emitter[ig]);
+			sprintf(filename, "%s/%s_%s/boxcar_%.4f_%s.tab", ctl->jur_tblbase, 
+                    ctl->jur_tblbase, ctl->emitter[ig], ctl->nu[id], ctl->emitter[ig]);
 #else            
-			sprintf(filename, "%s_%.4f_%s.tab", ctl->tblbase, ctl->nu[id], ctl->emitter[ig]);
+			sprintf(filename, "%s_%.4f_%s.tab", ctl->jur_tblbase, ctl->nu[id], ctl->emitter[ig]);
 #endif
 			// Try to open file
 			FILE *in;
@@ -401,10 +404,10 @@ void init_tbl(ctl_t const *ctl, trans_table_t *tbl) {
       } else { // checkmode
 			char filenames[LEN];
 #ifdef      DIRECTORY_WITH_GAS_NAME
-			sprintf(filenames, "%s/%s_%s/boxcar_%s_%s.tab", ctl->tblbase, 
-                    ctl->tblbase, ctl->emitter[ig], "<nu.4>", ctl->emitter[ig]);
+			sprintf(filenames, "%s/%s_%s/boxcar_%s_%s.tab", ctl->jur_tblbase, 
+                    ctl->jur_tblbase, ctl->emitter[ig], "<nu.4>", ctl->emitter[ig]);
 #else            
-			sprintf(filenames, "%s_%s_%s.tab", ctl->tblbase, "<nu.4>", ctl->emitter[ig]);
+			sprintf(filenames, "%s_%s_%s.tab", ctl->jur_tblbase, "<nu.4>", ctl->emitter[ig]);
 #endif
             printf("# try to initialize tables for gas %d %s from filenames %s\n", 
                    ig, ctl->emitter[ig], filenames);
@@ -646,12 +649,12 @@ void init_tbl(ctl_t const *ctl, trans_table_t *tbl) {
 	for(int id = 0; id < ctl->nd; id++) {
 		char filename[LEN];
 #ifdef  DIRECTORY_WITH_GAS_NAME
-        sprintf(filename, "%s/%s_%s/boxcar_%.4f.filt", ctl->tblbase, ctl->tblbase, "CO2", ctl->nu[id]);
+        sprintf(filename, "%s/%s_%s/boxcar_%.4f.filt", ctl->jur_tblbase, ctl->jur_tblbase, "CO2", ctl->nu[id]);
 #else        
-	sprintf(filename, "%s_%.4f.filt", ctl->tblbase, ctl->nu[id]);				// Read filter function
+	sprintf(filename, "%s_%.4f.filt", ctl->jur_tblbase, ctl->nu[id]);				// Read filter function
 #endif
 		double f[NSHAPE], nu[NSHAPE];																 // Arguments for read_shape
-		int const n = read_shape(filename, nu, f, ctl->checkmode);
+		int const n = jur_read_shape(filename, nu, f, ctl->checkmode);
 		if (n > NSHAPE) ERRMSG("Increase NSHAPE defined as " xstr(NSHAPE) " in jurassic.h");
       if (0 == ctl->checkmode) {
 		for(int it = 0; it < TBLNS; it++) {																	// Compute source function table
@@ -659,7 +662,7 @@ void init_tbl(ctl_t const *ctl, trans_table_t *tbl) {
 			double fsum = 0, fpsum = 0;
 			for(int i = 0; i < n; i++) {
 				fsum  += f[i];
-				fpsum += f[i]*planck(tbl->st[it], nu[i]);
+				fpsum += f[i]*jur_planck(tbl->st[it], nu[i]);
 			}
 			tbl->sr[it][id] = fpsum / fsum;
 		}
@@ -672,28 +675,28 @@ void init_tbl(ctl_t const *ctl, trans_table_t *tbl) {
 }
 
 //***************************************************************************
-void intpol_atm(ctl_t *ctl, atm_t *atm_dest, atm_t *atm_src) {
+void jur_intpol_atm(ctl_t *ctl, atm_t *atm_dest, atm_t *atm_src) {
 	for(int ip = 0; ip < atm_dest->np; ip++) {	 // Interpolate atmospheric data
 		double k[NW], q[NG];
-		intpol_atm_geo(ctl, atm_src, atm_dest->z[ip], atm_dest->lon[ip], atm_dest->lat[ip], &atm_dest->p[ip], &atm_dest->t[ip], q, k);
+		jur_intpol_atm_geo(ctl, atm_src, atm_dest->z[ip], atm_dest->lon[ip], atm_dest->lat[ip], &atm_dest->p[ip], &atm_dest->t[ip], q, k);
 		for(int ig = 0; ig < ctl->ng; ig++) atm_dest->q[ig][ip] = q[ig];
 		for(int iw = 0; iw < ctl->nw; iw++) atm_dest->k[iw][ip] = k[iw];
 	}
 }
 
 //***************************************************************************
-void intpol_atm_geo(ctl_t const *const ctl, atm_t *atm, double const z0, double const lon0, double const lat0,
+void jur_intpol_atm_geo(ctl_t const *const ctl, atm_t *atm, double const z0, double const lon0, double const lat0,
 		double *p, double *t, double *q, double *k) {
-	if		 (ctl->ip == 1) intpol_atm_1d(ctl, atm, 0, atm->np, z0, p, t, q, k); // 1D interpolation (vertical profile)
-	else if(ctl->ip == 2) intpol_atm_2d(ctl, atm, z0, lon0, lat0, p, t, q, k); // 2D interpolation (satellite track)
-	else if(ctl->ip == 3) intpol_atm_3d(ctl, atm, z0, lon0, lat0, p, t, q, k); // 3D interpolation (Lagrangian grid)
+	if		 (ctl->ip == 1) jur_intpol_atm_1d(ctl, atm, 0, atm->np, z0, p, t, q, k); // 1D interpolation (vertical profile)
+	else if(ctl->ip == 2) jur_intpol_atm_2d(ctl, atm, z0, lon0, lat0, p, t, q, k); // 2D interpolation (satellite track)
+	else if(ctl->ip == 3) jur_intpol_atm_3d(ctl, atm, z0, lon0, lat0, p, t, q, k); // 3D interpolation (Lagrangian grid)
 	else									ERRMSG("Unknown interpolation method, check IP!");	 // Wrong parameter
 }
 
 //***************************************************************************
-void intpol_atm_1d(ctl_t const *const ctl, atm_t const *const atm, int const idx0, int const n, double const z0,
+void jur_intpol_atm_1d(ctl_t const *const ctl, atm_t const *const atm, int const idx0, int const n, double const z0,
 		double *p, double *t, double *q, double *k) {
-	const int ip = idx0 + locate(&atm->z[idx0], n, z0);												 // Get array index
+	const int ip = idx0 + jur_locate(&atm->z[idx0], n, z0);												 // Get array index
 	*p = EXP(atm->z[ip], atm->p[ip], atm->z[ip + 1], atm->p[ip + 1], z0);			 // Interpolate
 	*t = LIN(atm->z[ip], atm->t[ip], atm->z[ip + 1], atm->t[ip + 1], z0);
 	for(int ig = 0; ig < ctl->ng; ig++) q[ig] = LIN(atm->z[ip], atm->q[ig][ip], atm->z[ip + 1], atm->q[ig][ip + 1], z0);
@@ -701,7 +704,7 @@ void intpol_atm_1d(ctl_t const *const ctl, atm_t const *const atm, int const idx
 }
 
 //***************************************************************************
-void intpol_atm_2d(ctl_t const *const ctl, atm_t * atm,
+void jur_intpol_atm_2d(ctl_t const *const ctl, atm_t * atm,
 		double const z0, double const lon0, double const lat0,
 		double *p, double *t, double *q, double *k) {
 	static double x1[NP][3];
@@ -718,7 +721,7 @@ void intpol_atm_2d(ctl_t const *const ctl, atm_t * atm,
 				nz[nx - 1] = 0;
 				lon1 = atm->lon[ip];
 				lat1 = atm->lat[ip];
-				geo2cart(0, lon1, lat1, x1[nx - 1]);
+				jur_geo2cart(0, lon1, lat1, x1[nx - 1]);
 				idx[nx - 1] = ip;
 			}
 			++nz[nx - 1];
@@ -728,7 +731,7 @@ void intpol_atm_2d(ctl_t const *const ctl, atm_t * atm,
 			if((ix > 0) && (fabs(atm->lat[idx[ix - 1]] - atm->lat[idx[ix]]) > dlat)) ERRMSG("Distance of profiles is too large!");
 		}
 	}
-	geo2cart(0, lon0, lat0, x0);				// Get Cartesian coordinates
+	jur_geo2cart(0, lon0, lat0, x0);				// Get Cartesian coordinates
 	for(int ix = 0; ix < nx; ix++) {			// Find next neighbours
 		if(fabs(lat0 - atm->lat[idx[ix]]) <= dlat) {	// Get squared horizontal distance
 			const double dh = DIST2(x0, x1[ix]);
@@ -744,8 +747,8 @@ void intpol_atm_2d(ctl_t const *const ctl, atm_t * atm,
 		}
 	}
 	// Interpolate vertically
-	intpol_atm_1d(ctl, atm, idx[ix0], nz[ix0], z0, &p0, &t0, q0, k0);
-	intpol_atm_1d(ctl, atm, idx[ix1], nz[ix1], z0, &p1, &t1, q1, k1);
+	jur_intpol_atm_1d(ctl, atm, idx[ix0], nz[ix0], z0, &p0, &t0, q0, k0);
+	jur_intpol_atm_1d(ctl, atm, idx[ix1], nz[ix1], z0, &p1, &t1, q1, k1);
 	// Interpolate horizontally
 	const double x2 = DIST2(x1[ix0], x1[ix1]);
 	const double x = sqrt(x2);
@@ -760,14 +763,14 @@ void intpol_atm_2d(ctl_t const *const ctl, atm_t * atm,
 }
 
 //***************************************************************************
-void intpol_atm_3d(ctl_t const *const ctl, atm_t *atm,
+void jur_intpol_atm_3d(ctl_t const *const ctl, atm_t *atm,
 		double const z0, double const lon0, double const lat0,
 		double *p, double *t, double *q, double *k) {
 	static double rm2, x1[NP][3];
 	if(!atm->init) {						// Initialize
 		atm->init = 1;
 		// Get Cartesian coordinates
-		for(int ip = 0; ip < atm->np; ip++) geo2cart(0, atm->lon[ip], atm->lat[ip], x1[ip]);
+		for(int ip = 0; ip < atm->np; ip++) jur_geo2cart(0, atm->lon[ip], atm->lat[ip], x1[ip]);
 		rm2 = gsl_pow_2(ctl->cx);					// Get squared influence radius
 	}
 	// Initialize for interpolation
@@ -779,7 +782,7 @@ void intpol_atm_3d(ctl_t const *const ctl, atm_t *atm,
 		const double dz = fabs(atm->z[ip] - z0);			// Get vertical distance
 		if(dz >= ctl->cz) continue;
 		if(fabs(atm->lat[ip] - lat0)*111.13 >= ctl->cx) continue;		// Check latitude distance
-		geo2cart(0, lon0, lat0, x0);				// Get horizontal distance
+		jur_geo2cart(0, lon0, lat0, x0);				// Get horizontal distance
 		const double dx2 = DIST2(x0, x1[ip]);
 		if(dx2 >= rm2) continue;
 		const double w = (1 - dz/ctl->cz)*(rm2 - dx2)/(rm2 + dx2);	// Set distance-based weighting factor
@@ -809,17 +812,17 @@ void intpol_atm_3d(ctl_t const *const ctl, atm_t *atm,
 // inline double refractivity(double p, double t) { return 7.753e-05*p/t; } // moved to jr_common.h
 
 //***************************************************************************
-void kernel(ctl_t const *const ctl, atm_t *atm, obs_t *obs, gsl_matrix *k) {
+void jur_kernel(ctl_t const *const ctl, atm_t *atm, obs_t *obs, gsl_matrix *k) {
 	int iqa[N];
-	formod(ctl, atm, obs);													 // Compute radiance for undisturbed atmospheric data
+	jur_formod(ctl, atm, obs);													 // Compute radiance for undisturbed atmospheric data
 	// Compose vectors
 	size_t m = k->size1, n = k->size2;
 	//printf("k->size2=%ld\n", (long int) n);
 	gsl_vector *x0, *yy0;
 	x0	= gsl_vector_alloc(n);
 	yy0 = gsl_vector_alloc(m);
-	atm2x(ctl, atm, x0, iqa, NULL);
-	obs2y(ctl, obs, yy0, NULL, NULL);
+	jur_atm2x(ctl, atm, x0, iqa, NULL);
+	jur_obs2y(ctl, obs, yy0, NULL, NULL);
 	gsl_matrix_set_zero(k);													// Initialize kernel matrix
 	//	#pragma omp parallel default(shared)
 	{
@@ -838,11 +841,11 @@ void kernel(ctl_t const *const ctl, atm_t *atm, obs_t *obs, gsl_matrix *k) {
 			// Disturb state vector element
 			gsl_vector_memcpy(x1, x0);
 			gsl_vector_set(x1, (size_t) j, gsl_vector_get(x1, (size_t) j) + h);
-			copy_atm(ctl, atm1, atm, 0);
-			copy_obs(ctl, obs1, obs, 0);
-			x2atm(ctl, x1, atm1);
-			formod(ctl, atm1, obs1);											// Compute radiance for disturbed atmospheric data
-			obs2y(ctl, obs1, yy1, NULL, NULL);						// Compose measurement vector for disturbed radiance data
+			jur_copy_atm(ctl, atm1, atm, 0);
+			jur_copy_obs(ctl, obs1, obs, 0);
+			jur_x2atm(ctl, x1, atm1);
+			jur_formod(ctl, atm1, obs1);											// Compute radiance for disturbed atmospheric data
+			jur_obs2y(ctl, obs1, yy1, NULL, NULL);						// Compose measurement vector for disturbed radiance data
 			for(size_t i = 0; i < m; i++) {								// Compute derivatives
 				gsl_matrix_set(k, i, (size_t)j, (gsl_vector_get(yy1, i) - gsl_vector_get(yy0, i))/h);
 			}
@@ -857,10 +860,10 @@ void kernel(ctl_t const *const ctl, atm_t *atm, obs_t *obs, gsl_matrix *k) {
 }
 
 //***************************************************************************
-inline double planck(double t, double nu) { return C1*gsl_pow_3(nu)/gsl_expm1(C2 *nu/t); }
+inline double jur_planck(double t, double nu) { return C1*gsl_pow_3(nu)/gsl_expm1(C2 *nu/t); }
 
 //***************************************************************************
-void altitude_range(atm_t const *atm, double *zmin, double *zmax) {
+void jur_altitude_range(atm_t const *atm, double *zmin, double *zmax) {
 	*zmax = *zmin = atm->z[0];
 	for(int ipp = 0;
 			(ipp < atm->np) && (atm->lon[ipp] == atm->lon[0]) && (atm->lat[ipp] == atm->lat[0]);
@@ -871,7 +874,7 @@ void altitude_range(atm_t const *atm, double *zmin, double *zmax) {
 }
 
 // Change segment lengths according to trapezoid rule
-void trapezoid_rule(int const np, double ds[]) {
+void jur_trapezoid_rule(int const np, double ds[]) {
 	for(int ip = np - 1; ip >= 1; ip--) {
         ds[ip] = 0.5*(ds[ip - 1] + ds[ip]);
     }
@@ -879,7 +882,7 @@ void trapezoid_rule(int const np, double ds[]) {
 }
 
 //***************************************************************************
-void read_atm(char const *dirname, char const *filename, ctl_t *ctl, atm_t *atm) {
+void jur_read_atm(char const *dirname, char const *filename, ctl_t *ctl, atm_t *atm) {
 	FILE *in;
 	char line[LEN], *tok, *saveptr;
 	int ig, iw;
@@ -888,7 +891,7 @@ void read_atm(char const *dirname, char const *filename, ctl_t *ctl, atm_t *atm)
 	atm->np = 0;
 	printf("Read atmospheric data: %s/%s\n", dirname, filename);
 	// Open file
-	in = mkFile(dirname, filename, "r");
+	in = jur_mkFile(dirname, filename, "r");
     if (ctl->checkmode) { 
         printf("# read_atm can read max %d points\n", NP); 
         printf("# read_atm found file %s/%s but skip\n", dirname, filename); 
@@ -917,7 +920,7 @@ void read_atm(char const *dirname, char const *filename, ctl_t *ctl, atm_t *atm)
 
 
 //***************************************************************************
-void read_ctl(int argc, char *argv[], ctl_t *ctl) {
+void jur_read_ctl(int argc, char *argv[], ctl_t *ctl) {
 	// Write info
 	printf("\nJuelich Rapid Spectral Simulation Code (JURASSIC)\n"
 			"(executable: %s | compiled: %s, %s)\n\n", argv[0], __DATE__, __TIME__);
@@ -925,32 +928,32 @@ void read_ctl(int argc, char *argv[], ctl_t *ctl) {
 	printf("# JURASSIC git commit " xstr(SHOW_GIT_KEY) "\n\n");
 #endif
 	// Emitters
-	ctl->ng = (int) scan_ctl(argc, argv, "NG", -1, "0", NULL);
+	ctl->ng = (int) jur_scan_ctl(argc, argv, "NG", -1, "0", NULL);
 	if(ctl->ng < 0 || ctl->ng > NG) ERRMSG("Set 0 <= NG <= " xstr(NG) " (max. defined in jurassic.h)");
 	for(int ig = 0; ig < ctl->ng; ig++) {
-        scan_ctl(argc, argv, "EMITTER", ig, "", ctl->emitter[ig]);
+        jur_scan_ctl(argc, argv, "EMITTER", ig, "", ctl->emitter[ig]);
     } // ig
 	// Radiance channels
-	ctl->nd = (int) scan_ctl(argc, argv, "ND", -1, "0", NULL);
+	ctl->nd = (int) jur_scan_ctl(argc, argv, "ND", -1, "0", NULL);
 	if(ctl->nd < 0 || ctl->nd > ND) ERRMSG("Set 0 <= ND <= " xstr(ND) " (max. defined in jurassic.h)");
 	for(int id = 0; id < ctl->nd; id++) {
-        ctl->nu[id] = scan_ctl(argc, argv, "NU", id, "", NULL);
+        ctl->nu[id] = jur_scan_ctl(argc, argv, "NU", id, "", NULL);
     } // id
 	// Spectral windows
-	ctl->nw = (int) scan_ctl(argc, argv, "NW", -1, "1", NULL);
+	ctl->nw = (int) jur_scan_ctl(argc, argv, "NW", -1, "1", NULL);
 	if(ctl->nw < 0 || ctl->nw > NW) ERRMSG("Set 0 <= NW <= " xstr(NW) " (max. defined in jurassic.h)");
 	for(int id = 0; id < ctl->nd; id++) {
-        ctl->window[id] = (int) scan_ctl(argc, argv, "WINDOW", id, "0", NULL);
+        ctl->window[id] = (int) jur_scan_ctl(argc, argv, "WINDOW", id, "0", NULL);
     } // id
 	// Emissivity look-up tables
-	scan_ctl(argc, argv, "TBLBASE", -1, "-", ctl->tblbase);
+	jur_scan_ctl(argc, argv, "TBLBASE", -1, "-", ctl->jur_tblbase);
 	// Hydrostatic equilibrium
-	ctl->hydz = scan_ctl(argc, argv, "HYDZ", -1, "-999", NULL);
+	ctl->hydz = jur_scan_ctl(argc, argv, "HYDZ", -1, "-999", NULL);
 	// Continua
-	ctl->ctm_co2 = (int) scan_ctl(argc, argv, "CTM_CO2", -1, "1", NULL);
-	ctl->ctm_h2o = (int) scan_ctl(argc, argv, "CTM_H2O", -1, "1", NULL);
-	ctl->ctm_n2 = (int) scan_ctl(argc, argv, "CTM_N2", -1, "1", NULL);
-	ctl->ctm_o2 = (int) scan_ctl(argc, argv, "CTM_O2", -1, "1", NULL);
+	ctl->ctm_co2 = (int) jur_scan_ctl(argc, argv, "CTM_CO2", -1, "1", NULL);
+	ctl->ctm_h2o = (int) jur_scan_ctl(argc, argv, "CTM_H2O", -1, "1", NULL);
+	ctl->ctm_n2 = (int) jur_scan_ctl(argc, argv, "CTM_N2", -1, "1", NULL);
+	ctl->ctm_o2 = (int) jur_scan_ctl(argc, argv, "CTM_O2", -1, "1", NULL);
 	if (1) {
 		// automatic control of gases: CTM_...
 		int in_co2 = 0, in_h2o = 0, in_n2 = 0, in_o2 = 0; // counters how many frequencies are in range
@@ -967,41 +970,41 @@ void read_ctl(int argc, char *argv[], ctl_t *ctl) {
 		if(0 == in_o2  && ctl->ctm_o2)	{ ctl->ctm_o2  = 0; printf("No frequency in O2 range, automatically set CTM_O2 = 0\n"); }
 	}
 	// Interpolation of atmospheric data
-	ctl->ip = (int) scan_ctl(argc, argv, "IP", -1, "1", NULL);
-	ctl->cz = scan_ctl(argc, argv, "CZ", -1, "0", NULL);
-	ctl->cx = scan_ctl(argc, argv, "CX", -1, "0", NULL);
+	ctl->ip = (int) jur_scan_ctl(argc, argv, "IP", -1, "1", NULL);
+	ctl->cz = jur_scan_ctl(argc, argv, "CZ", -1, "0", NULL);
+	ctl->cx = jur_scan_ctl(argc, argv, "CX", -1, "0", NULL);
 	// Ray-tracing
-	ctl->refrac = (int) scan_ctl(argc, argv, "REFRAC", -1, "1", NULL);
-	ctl->rayds = scan_ctl(argc, argv, "RAYDS", -1, "10", NULL);
-	ctl->raydz = scan_ctl(argc, argv, "RAYDZ", -1, "0.5", NULL);
+	ctl->refrac = (int) jur_scan_ctl(argc, argv, "REFRAC", -1, "1", NULL);
+	ctl->rayds = jur_scan_ctl(argc, argv, "RAYDS", -1, "10", NULL);
+	ctl->raydz = jur_scan_ctl(argc, argv, "RAYDZ", -1, "0.5", NULL);
 	// Field of view
-	scan_ctl(argc, argv, "FOV", -1, "-", ctl->fov);
+	jur_scan_ctl(argc, argv, "FOV", -1, "-", ctl->fov);
 	// Retrieval interface
-	ctl->retp_zmin = scan_ctl(argc, argv, "RETP_ZMIN", -1, "-999", NULL);
-	ctl->retp_zmax = scan_ctl(argc, argv, "RETP_ZMAX", -1, "-999", NULL);
-	ctl->rett_zmin = scan_ctl(argc, argv, "RETT_ZMIN", -1, "-999", NULL);
-	ctl->rett_zmax = scan_ctl(argc, argv, "RETT_ZMAX", -1, "-999", NULL);
+	ctl->retp_zmin = jur_scan_ctl(argc, argv, "RETP_ZMIN", -1, "-999", NULL);
+	ctl->retp_zmax = jur_scan_ctl(argc, argv, "RETP_ZMAX", -1, "-999", NULL);
+	ctl->rett_zmin = jur_scan_ctl(argc, argv, "RETT_ZMIN", -1, "-999", NULL);
+	ctl->rett_zmax = jur_scan_ctl(argc, argv, "RETT_ZMAX", -1, "-999", NULL);
 	for(int ig = 0; ig < ctl->ng; ig++) {
-		ctl->retq_zmin[ig] = scan_ctl(argc, argv, "RETQ_ZMIN", ig, "-999", NULL);
-		ctl->retq_zmax[ig] = scan_ctl(argc, argv, "RETQ_ZMAX", ig, "-999", NULL);
+		ctl->retq_zmin[ig] = jur_scan_ctl(argc, argv, "RETQ_ZMIN", ig, "-999", NULL);
+		ctl->retq_zmax[ig] = jur_scan_ctl(argc, argv, "RETQ_ZMAX", ig, "-999", NULL);
 	}
 	for(int iw = 0; iw < ctl->nw; iw++) {
-		ctl->retk_zmin[iw] = scan_ctl(argc, argv, "RETK_ZMIN", iw, "-999", NULL);
-		ctl->retk_zmax[iw] = scan_ctl(argc, argv, "RETK_ZMAX", iw, "-999", NULL);
+		ctl->retk_zmin[iw] = jur_scan_ctl(argc, argv, "RETK_ZMIN", iw, "-999", NULL);
+		ctl->retk_zmax[iw] = jur_scan_ctl(argc, argv, "RETK_ZMAX", iw, "-999", NULL);
 	}
 	// Output flags
-	ctl->write_bbt = (int) scan_ctl(argc, argv, "WRITE_BBT", -1, "0", NULL);
+	ctl->write_bbt = (int) jur_scan_ctl(argc, argv, "WRITE_BBT", -1, "0", NULL);
 	ctl->write_matrix =
-		(int) scan_ctl(argc, argv, "WRITE_MATRIX", -1, "0", NULL);
+		(int) jur_scan_ctl(argc, argv, "WRITE_MATRIX", -1, "0", NULL);
 	// External forward models
-	ctl->formod = (int) scan_ctl(argc, argv, "FORMOD", -1, "2", NULL);
-	scan_ctl(argc, argv, "RFMBIN", -1, "-", ctl->rfmbin);
-	scan_ctl(argc, argv, "RFMHIT", -1, "-", ctl->rfmhit);
+	ctl->formod = (int) jur_scan_ctl(argc, argv, "FORMOD", -1, "2", NULL);
+	jur_scan_ctl(argc, argv, "RFMBIN", -1, "-", ctl->rfmbin);
+	jur_scan_ctl(argc, argv, "RFMHIT", -1, "-", ctl->rfmhit);
 	for(int ig = 0; ig < ctl->ng; ig++) {
-        scan_ctl(argc, argv, "RFMXSC", ig, "-", ctl->rfmxsc[ig]);
+        jur_scan_ctl(argc, argv, "RFMXSC", ig, "-", ctl->rfmxsc[ig]);
     } // ig
 
-	ctl->useGPU = (int) scan_ctl(argc, argv, "USEGPU", -1, "0", NULL);
+	ctl->useGPU = (int) jur_scan_ctl(argc, argv, "USEGPU", -1, "0", NULL);
 #ifndef hasGPU  
 	if (ctl->useGPU > 0) {
 		ERRMSG("Requested USEGPU = 1 (always) but compiled without -D hasGPU");
@@ -1011,23 +1014,23 @@ void read_ctl(int argc, char *argv[], ctl_t *ctl) {
 	}
 #endif
   	
-	ctl->checkmode = (int) scan_ctl(argc, argv, "CHECKMODE", -1, "0", NULL);
+	ctl->checkmode = (int) jur_scan_ctl(argc, argv, "CHECKMODE", -1, "0", NULL);
     	printf("CHECKMODE = %d (%s)\n", ctl->checkmode, 
            (0 == ctl->checkmode)?"run":((ctl->checkmode > 0)?"skip":"obs"));
         
-    ctl->read_binary  = (int) scan_ctl(argc, argv, "READ_BINARY", -1, "-1", NULL);
-    ctl->write_binary = (int) scan_ctl(argc, argv, "WRITE_BINARY", -1, "1", NULL);
+    ctl->read_binary  = (int) jur_scan_ctl(argc, argv, "READ_BINARY", -1, "-1", NULL);
+    ctl->write_binary = (int) jur_scan_ctl(argc, argv, "WRITE_BINARY", -1, "1", NULL);
 
-    ctl->gpu_nbytes_shared_memory = (int) scan_ctl(argc, argv, "GPU_SHARED_MEMORY", -1, "0", NULL);
+    ctl->gpu_nbytes_shared_memory = (int) jur_scan_ctl(argc, argv, "GPU_SHARED_MEMORY", -1, "0", NULL);
 }
 
 //***************************************************************************
-void read_matrix(char const *dirname, char const *filename, gsl_matrix *matrix) {
+void jur_read_matrix(char const *dirname, char const *filename, gsl_matrix *matrix) {
 	char dum[LEN], line[LEN];
 	double value;
 	int i, j;
 	printf("Read matrix: %s/%s\n", dirname, filename);
-	FILE* in = mkFile(dirname, filename, "r");
+	FILE* in = jur_mkFile(dirname, filename, "r");
 	// Read data
 	gsl_matrix_set_zero(matrix);
 	while (fgets(line, LEN, in))
@@ -1038,11 +1041,11 @@ void read_matrix(char const *dirname, char const *filename, gsl_matrix *matrix) 
 }
 
 //***************************************************************************
-void read_obs(char const *dirname, char const *filename, ctl_t *ctl, obs_t *obs) {
+void jur_read_obs(char const *dirname, char const *filename, ctl_t *ctl, obs_t *obs) {
 	char line[LEN], *tok, *saveptr;
 	obs->nr = 0;						// Init
 	printf("Read observation data: %s/%s\n", dirname, filename);
-	FILE* in = mkFile(dirname, filename, "r");
+	FILE* in = jur_mkFile(dirname, filename, "r");
     if (ctl->checkmode > 0) { 
         printf("# read_obs can read max %d rays\n", NR); 
         printf("# read_obs found file %s/%s but skip\n", dirname, filename); 
@@ -1068,7 +1071,7 @@ void read_obs(char const *dirname, char const *filename, ctl_t *ctl, obs_t *obs)
 }
 
 //***************************************************************************
-double read_obs_rfm(char const *basename, double z, double *nu, double *f, int n) {
+double jur_read_obs_rfm(char const *basename, double z, double *nu, double *f, int n) {
 	FILE *in;
 	char filename[LEN];
 	double filt, fsum = 0, nu2[NSHAPE], *nurfm, *rad, radsum = 0;
@@ -1079,11 +1082,11 @@ double read_obs_rfm(char const *basename, double z, double *nu, double *f, int n
 	sprintf(filename, "%s_%05d.asc", basename, (int) (z *1000));
 	if(!(in = fopen(filename, "r"))) {
 		sprintf(filename, "%s_%05d.asc", basename, (int) (z *1000) + 1);
-		in = mkFile(NULL, filename, "r");
+		in = jur_mkFile(NULL, filename, "r");
 	}
 	fclose(in);
 	// Read RFM spectrum
-	read_rfm_spec(filename, nurfm, rad, &npts);
+	jur_read_rfm_spec(filename, nurfm, rad, &npts);
 	// Set wavenumbers
 	nu2[0] = nu[0];
 	for(int i = 1; i < n - 1; i++) nu2[i] = LIN(0.0, nu2[0], n - 1.0, nu2[n - 1], i);
@@ -1091,7 +1094,7 @@ double read_obs_rfm(char const *basename, double z, double *nu, double *f, int n
 	// Convolute
 	for(int ipts = 0; ipts < npts; ipts++) {
 		if(nurfm[ipts] >= nu2[0] && nurfm[ipts] <= nu2[n - 1]) {
-			const int idx = locate(nu2, n, nurfm[ipts]);
+			const int idx = jur_locate(nu2, n, nurfm[ipts]);
 			filt = LIN(nu2[idx], f[idx], nu2[idx + 1], f[idx + 1], nurfm[ipts]);
 			fsum += filt;
 			radsum += filt *rad[ipts];
@@ -1104,12 +1107,12 @@ double read_obs_rfm(char const *basename, double z, double *nu, double *f, int n
 }
 
 //***************************************************************************
-void read_rfm_spec(char const *filename, double *nu, double *rad, int *npts) {
+void jur_read_rfm_spec(char const *filename, double *nu, double *rad, int *npts) {
 	char line[RFMLINE], *tok;
 	double dnu, nu0, nu1;
 	int ipts = 0;
 	printf("Read RFM data: %s\n", filename);
-	FILE* in = mkFile(NULL, filename, "r");
+	FILE* in = jur_mkFile(NULL, filename, "r");
 	// Read header...
 	for(int i = 0; i < 4; i++) {
 		if(fgets(line, RFMLINE, in) == NULL) ERRMSG("Error while reading file header!");
@@ -1131,10 +1134,10 @@ void read_rfm_spec(char const *filename, double *nu, double *rad, int *npts) {
 
 //***************************************************************************
 
-int read_shape(char const *filename, double *x, double *y, int const checkmode) {
+int jur_read_shape(char const *filename, double *x, double *y, int const checkmode) {
 	char line[LEN];
 	printf("Read shape function: %s\n", filename);
-	FILE *in = mkFile(NULL, filename, "r");
+	FILE *in = jur_mkFile(NULL, filename, "r");
     if (checkmode) { fclose(in); printf("# read_shape found %s\n", filename); return 0; }
 	// Read data
 	int n = 0;
@@ -1150,12 +1153,12 @@ int read_shape(char const *filename, double *x, double *y, int const checkmode) 
 }
 
 //***************************************************************************
-double scan_ctl(int argc, char *argv[], char const *varname, int arridx, char const *defvalue, char *value) {
+double jur_scan_ctl(int argc, char *argv[], char const *varname, int arridx, char const *defvalue, char *value) {
 	FILE *in = NULL;
 	char dummy[LEN], fullname1[LEN], fullname2[LEN], line[LEN], msg[LEN], rvarname[LEN], rval[LEN];
 	int contain = 0;
 	// Open file
-	if((argv[1][0] != '-')) in = mkFile(NULL, argv[1], "r");
+	if((argv[1][0] != '-')) in = jur_mkFile(NULL, argv[1], "r");
 	// Set full variable name
 	if(arridx >= 0) {
 		sprintf(fullname1, "%s[%d]", varname, arridx);
@@ -1201,13 +1204,13 @@ double scan_ctl(int argc, char *argv[], char const *varname, int arridx, char co
 }
 
 //***************************************************************************
-void time2jsec(int year, int mon, int day, int hour, int min, int sec, double remain, double *jsec) {
+void jur_time2jsec(int year, int mon, int day, int hour, int min, int sec, double remain, double *jsec) {
 	struct tm t0 = { .tm_year=100,				 .tm_mon=0,				.tm_mday=1,		.tm_hour=0,		 .tm_min=0,		.tm_sec=0		};
 	struct tm t1 = { .tm_year=year - 1900, .tm_mon=mon - 1, .tm_mday=day, .tm_hour=hour, .tm_min=min, .tm_sec=sec };
 	*jsec = (double) timegm(&t1) - (double) timegm(&t0) + remain;
 }
 
-void jsec2time(double jsec, int *year, int *mon, int *day, int *hour, int *min, int *sec, double *remain) {
+void jur_jsec2time(double jsec, int *year, int *mon, int *day, int *hour, int *min, int *sec, double *remain) {
 	struct tm t0 = {.tm_year = 100, .tm_mon = 0, .tm_mday = 1, .tm_hour = 0, .tm_min = 0, .tm_sec = 0};
 	time_t jsec0 = (time_t) jsec + timegm(&t0);
 	struct tm *t1 = gmtime(&jsec0);
@@ -1221,7 +1224,7 @@ void jsec2time(double jsec, int *year, int *mon, int *day, int *hour, int *min, 
 }
 
 //***************************************************************************
-double timer(char const *name, char const *file, char const *func, int line, int mode) {
+double jur_timer(char const *name, char const *file, char const *func, int line, int mode) {
     #define MaxNumTimers 10
 	static int    nt = 0; // number of timers active
 	static double w0[MaxNumTimers]; // start time in seconds
@@ -1246,13 +1249,13 @@ double timer(char const *name, char const *file, char const *func, int line, int
 }
 
 //***************************************************************************
-void write_atm(char const *dirname, char const *filename, ctl_t *ctl, atm_t *atm) {
+void jur_write_atm(char const *dirname, char const *filename, ctl_t *ctl, atm_t *atm) {
     if (ctl->checkmode) {
         printf("# skip writing target file name for atmospheric data: %s/%s\n", dirname, filename);
         return; // return before creating the file
     } // checkmode
     printf("Write atmospheric data: %s/%s", dirname, filename);
-	FILE* out = mkFile(dirname, filename, "w");
+	FILE* out = jur_mkFile(dirname, filename, "w");
 	// Write header
 	fprintf(out,
 			"# $1 = time (seconds since 2000-01-01T00:00Z)\n"
@@ -1277,9 +1280,9 @@ void write_atm(char const *dirname, char const *filename, ctl_t *ctl, atm_t *atm
 }
 
 //***************************************************************************
-void write_atm_rfm(char const *filename, ctl_t const *const ctl, atm_t const *const atm) {
+void jur_write_atm_rfm(char const *filename, ctl_t const *const ctl, atm_t const *const atm) {
 	printf("Write RFM data: %s\n", filename);
-	FILE *out = mkFile(NULL, filename, "w");
+	FILE *out = jur_mkFile(NULL, filename, "w");
 	// Write data
 	fprintf(out, "%d\n", atm->np);
 	fprintf(out, "*HGT [km]\n");
@@ -1297,7 +1300,7 @@ void write_atm_rfm(char const *filename, ctl_t const *const ctl, atm_t const *co
 }
 
 //***************************************************************************
-void idx2name(ctl_t *ctl, int idx, char *quantity) {
+void jur_idx2name(ctl_t *ctl, int idx, char *quantity) {
 	if(idx == IDXP) sprintf(quantity, "PRESSURE");
 	if(idx == IDXT) sprintf(quantity, "TEMPERATURE");
 	for(int ig = 0; ig < ctl->ng; ig++)
@@ -1306,7 +1309,7 @@ void idx2name(ctl_t *ctl, int idx, char *quantity) {
 		if(idx == IDXK(iw)) sprintf(quantity, "EXTINCT_WINDOW%d", iw);
 }
 
-void write_matrix(char const *dirname, char const *filename,
+void jur_write_matrix(char const *dirname, char const *filename,
 		ctl_t *ctl, gsl_matrix *matrix,
 		atm_t *atm, obs_t *obs,
 		char const *rowspace, char const *colspace, char const *sort) {
@@ -1325,7 +1328,7 @@ void write_matrix(char const *dirname, char const *filename,
 	ALLOC(rira, int, M);
 	// Open output file
 	printf("Write matrix: %s/%s", dirname, filename);
-	FILE *out = mkFile(dirname, filename, "w");
+	FILE *out = jur_mkFile(dirname, filename, "w");
 	// Write header (row space)
 	if(rowspace[0] == 'y') {
 		fprintf(out,
@@ -1335,7 +1338,7 @@ void write_matrix(char const *dirname, char const *filename,
 				"#	$4 = Row: view point altitude [km]\n"
 				"#	$5 = Row: view point longitude [deg]\n"
 				"#	$6 = Row: view point latitude [deg]\n");
-		nr = obs2y(ctl, obs, NULL, rida, rira);			// Get number of rows
+		nr = jur_obs2y(ctl, obs, NULL, rida, rira);			// Get number of rows
 	} else {
 		fprintf(out,
 				"#	$1 = Row: index (state space)\n"
@@ -1343,7 +1346,7 @@ void write_matrix(char const *dirname, char const *filename,
 				"#	$3 = Row: time (seconds since 2000-01-01T00:00Z)\n"
 				"#	$4 = Row: altitude [km]\n"
 				"#	$5 = Row: longitude [deg]\n" "# $6 = Row: latitude [deg]\n");
-		nr = atm2x(ctl, atm, NULL, riqa, ripa);			// Get number of rows
+		nr = jur_atm2x(ctl, atm, NULL, riqa, ripa);			// Get number of rows
 	}
 	// Write header (column space)
 	if(colspace[0] == 'y') {
@@ -1354,7 +1357,7 @@ void write_matrix(char const *dirname, char const *filename,
 				"# $10 = Col: view point altitude [km]\n"
 				"# $11 = Col: view point longitude [deg]\n"
 				"# $12 = Col: view point latitude [deg]\n");
-		nc = obs2y(ctl, obs, NULL, cida, cira);			// Get number of columns
+		nc = jur_obs2y(ctl, obs, NULL, cida, cira);			// Get number of columns
 	} else {
 		fprintf(out,
 				"#	$7 = Col: index (state space)\n"
@@ -1362,7 +1365,7 @@ void write_matrix(char const *dirname, char const *filename,
 				"#	$9 = Col: time (seconds since 2000-01-01T00:00Z)\n"
 				"# $10 = Col: altitude [km]\n"
 				"# $11 = Col: longitude [deg]\n" "# $12 = Col: latitude [deg]\n");
-		nc = atm2x(ctl, atm, NULL, ciqa, cipa);			// Get number of columns
+		nc = jur_atm2x(ctl, atm, NULL, ciqa, cipa);			// Get number of columns
 	}
 	fprintf(out, "# $13 = Matrix element\n\n");		// Write header entry
 	// Write matrix data
@@ -1376,7 +1379,7 @@ void write_matrix(char const *dirname, char const *filename,
 						obs->time[rira[i]], obs->vpz[rira[i]],
 						obs->vplon[rira[i]], obs->vplat[rira[i]]);
 			} else {
-				idx2name(ctl, riqa[i], quantity);
+				jur_idx2name(ctl, riqa[i], quantity);
 				fprintf(out, "%d %s %.2f %g %g %g", (int) i, quantity,
 						atm->time[ripa[i]], atm->z[ripa[i]],
 						atm->lon[ripa[i]], atm->lat[ripa[i]]);
@@ -1388,7 +1391,7 @@ void write_matrix(char const *dirname, char const *filename,
 						obs->time[cira[j]], obs->vpz[cira[j]],
 						obs->vplon[cira[j]], obs->vplat[cira[j]]);
 			} else {
-				idx2name(ctl, ciqa[j], quantity);
+				jur_idx2name(ctl, ciqa[j], quantity);
 				fprintf(out, " %d %s %.2f %g %g %g", (int) j, quantity,
 						atm->time[cipa[j]], atm->z[cipa[j]],
 						atm->lon[cipa[j]], atm->lat[cipa[j]]);
@@ -1423,13 +1426,13 @@ void write_matrix(char const *dirname, char const *filename,
 }
 
 //***************************************************************************
-void write_obs(char const *dirname, char const *filename, ctl_t *ctl, obs_t *obs) {
+void jur_write_obs(char const *dirname, char const *filename, ctl_t *ctl, obs_t *obs) {
     if (ctl->checkmode) {
         printf("# skip writing target file name for observation data: %s/%s\n", dirname, filename);
         return; // return before creating the file
     } // checkmode
 	printf("Write observation data: %s/%s\n", dirname, filename);
-	FILE* out = mkFile(dirname, filename, "w");
+	FILE* out = jur_mkFile(dirname, filename, "w");
 	// Write header
 	fprintf(out,
 			"# $1 = time (seconds since 2000-01-01T00:00Z)\n"
@@ -1470,15 +1473,15 @@ void write_obs(char const *dirname, char const *filename, ctl_t *ctl, obs_t *obs
 }
 
 //***************************************************************************
-void x2atm(ctl_t const *const ctl, gsl_vector *x, atm_t *atm) {
+void jur_x2atm(ctl_t const *const ctl, gsl_vector *x, atm_t *atm) {
 	size_t n = 0;
-	x2atm_help(atm, ctl->retp_zmin, ctl->retp_zmax, atm->p, x, &n);							// Set pressure
-	x2atm_help(atm, ctl->rett_zmin, ctl->rett_zmax, atm->t, x, &n);							// Set temperature
-	for(int ig = 0; ig < ctl->ng; ig++) x2atm_help(atm, ctl->retq_zmin[ig], ctl->retq_zmax[ig], atm->q[ig], x, &n);	// Set volume mixing ratio
-	for(int iw = 0; iw < ctl->nw; iw++) x2atm_help(atm, ctl->retk_zmin[iw], ctl->retk_zmax[iw], atm->k[iw], x, &n);	// Set extinction
+	jur_x2atm_help(atm, ctl->retp_zmin, ctl->retp_zmax, atm->p, x, &n);							// Set pressure
+	jur_x2atm_help(atm, ctl->rett_zmin, ctl->rett_zmax, atm->t, x, &n);							// Set temperature
+	for(int ig = 0; ig < ctl->ng; ig++) jur_x2atm_help(atm, ctl->retq_zmin[ig], ctl->retq_zmax[ig], atm->q[ig], x, &n);	// Set volume mixing ratio
+	for(int iw = 0; iw < ctl->nw; iw++) jur_x2atm_help(atm, ctl->retk_zmin[iw], ctl->retk_zmax[iw], atm->k[iw], x, &n);	// Set extinction
 }
 
-void x2atm_help(atm_t *atm, double zmin, double zmax, double *value, gsl_vector *x, size_t *n) {
+void jur_x2atm_help(atm_t *atm, double zmin, double zmax, double *value, gsl_vector *x, size_t *n) {
 	for(int ip = 0; ip < atm->np; ip++) {		// Extract state vector elements
 		if((atm->z[ip] >= zmin) && (atm->z[ip] <= zmax)) {
 			value[ip] = gsl_vector_get(x, *n);
@@ -1488,20 +1491,20 @@ void x2atm_help(atm_t *atm, double zmin, double zmax, double *value, gsl_vector 
 }
 
 //***************************************************************************
-size_t atm2x(ctl_t const *const ctl, atm_t const *const atm, gsl_vector *x, int *iqa, int *ipa) {
+size_t jur_atm2x(ctl_t const *const ctl, atm_t const *const atm, gsl_vector *x, int *iqa, int *ipa) {
 	size_t n = 0;
-	atm2x_help(atm, ctl->retp_zmin, ctl->retp_zmax, atm->p, IDXP, x, iqa, ipa, &n);		// Add pressure
-	atm2x_help(atm, ctl->rett_zmin, ctl->rett_zmax, atm->t, IDXT, x, iqa, ipa, &n);		// Add temperature
+	jur_atm2x_help(atm, ctl->retp_zmin, ctl->retp_zmax, atm->p, IDXP, x, iqa, ipa, &n);		// Add pressure
+	jur_atm2x_help(atm, ctl->rett_zmin, ctl->rett_zmax, atm->t, IDXT, x, iqa, ipa, &n);		// Add temperature
 	for(int ig = 0; ig < ctl->ng; ig++) {																							// Add volume mixing ratios
-		atm2x_help(atm, ctl->retq_zmin[ig], ctl->retq_zmax[ig], atm->q[ig], IDXQ(ig), x, iqa, ipa, &n);
+		jur_atm2x_help(atm, ctl->retq_zmin[ig], ctl->retq_zmax[ig], atm->q[ig], IDXQ(ig), x, iqa, ipa, &n);
 	}
 	for(int iw = 0; iw < ctl->nw; iw++) {																						 // Add extinction
-		atm2x_help(atm, ctl->retk_zmin[iw], ctl->retk_zmax[iw], atm->k[iw], IDXK(iw), x, iqa, ipa, &n);
+		jur_atm2x_help(atm, ctl->retk_zmin[iw], ctl->retk_zmax[iw], atm->k[iw], IDXK(iw), x, iqa, ipa, &n);
 	}
 	return n;
 }
 
-void atm2x_help(atm_t const *const atm, double zmin, double zmax, double const *const value, int val_iqa, gsl_vector *x, int *iqa, int *ipa, size_t *n) {
+void jur_atm2x_help(atm_t const *const atm, double zmin, double zmax, double const *const value, int val_iqa, gsl_vector *x, int *iqa, int *ipa, size_t *n) {
 	for(int ip = 0; ip < atm->np; ip++) {																						 // Add elements to state vector
 		if(atm->z[ip] >= zmin && atm->z[ip] <= zmax) {
 			if(x)		gsl_vector_set(x, *n, value[ip]);
@@ -1513,7 +1516,7 @@ void atm2x_help(atm_t const *const atm, double zmin, double zmax, double const *
 }
 
 //***************************************************************************
-void y2obs(ctl_t *ctl, gsl_vector *y, obs_t *obs) {
+void jur_y2obs(ctl_t *ctl, gsl_vector *y, obs_t *obs) {
 	size_t m = 0;
 	for(int ir = 0; ir < obs->nr; ir++) { // Decompose measurement vector
 		for(int id = 0; id < ctl->nd; id++) {
@@ -1525,7 +1528,7 @@ void y2obs(ctl_t *ctl, gsl_vector *y, obs_t *obs) {
 	}
 }
 
-size_t obs2y(ctl_t const *const ctl, obs_t const *const obs, gsl_vector *y, int *ida, int *ira) {
+size_t jur_obs2y(ctl_t const *const ctl, obs_t const *const obs, gsl_vector *y, int *ida, int *ira) {
 	size_t m = 0;
 	for(int ir = 0; ir < obs->nr; ir++) { // Determine measurement vector
 		for(int id = 0; id < ctl->nd; id++) {

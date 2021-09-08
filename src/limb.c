@@ -36,14 +36,14 @@ int main(
   static obs_t obs;
   
   /* Read control parameters... */
-  read_ctl(argc, argv, &ctl);
-  double const obsz = scan_ctl(argc, argv, "OBSZ", -1, "780", NULL);
-  double const t0 = scan_ctl(argc, argv, "T0", -1, "0", NULL);
-  double const t1 = scan_ctl(argc, argv, "T1", -1, "0", NULL);
-  double const dt = scan_ctl(argc, argv, "DT", -1, "1", NULL);
-  double const z0 = scan_ctl(argc, argv, "Z0", -1, "3", NULL);
-  double const z1 = scan_ctl(argc, argv, "Z1", -1, "68", NULL);
-  double const dz = scan_ctl(argc, argv, "DZ", -1, "1", NULL);
+  jur_read_ctl(argc, argv, &ctl);
+  double const obsz = jur_scan_ctl(argc, argv, "OBSZ", -1, "780", NULL);
+  double const t0 = jur_scan_ctl(argc, argv, "T0", -1, "0", NULL);
+  double const t1 = jur_scan_ctl(argc, argv, "T1", -1, "0", NULL);
+  double const dt = jur_scan_ctl(argc, argv, "DT", -1, "1", NULL);
+  double const z0 = jur_scan_ctl(argc, argv, "Z0", -1, "3", NULL);
+  double const z1 = jur_scan_ctl(argc, argv, "Z1", -1, "68", NULL);
+  double const dz = jur_scan_ctl(argc, argv, "DZ", -1, "1", NULL);
 
   /* Create measurement geometry... */
   obs.nr = 0;
@@ -64,7 +64,7 @@ int main(
   }
 
   /* Write observation data... */
-  write_obs(".", argv[2], &ctl, &obs);
+  jur_write_obs(".", argv[2], &ctl, &obs);
 
   return EXIT_SUCCESS;
 }

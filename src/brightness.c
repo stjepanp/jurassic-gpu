@@ -39,7 +39,7 @@ int main(
   nu = atof(argv[2]);
 
   /* Compute brightness temperature... */
-  printf("%.10g\n", brightness(rad, nu));
+  printf("%.10g\n", jur_brightness(rad, nu));
 
   return EXIT_SUCCESS;
 }

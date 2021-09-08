@@ -98,7 +98,7 @@
 //Added:
 
 /*! Start or stop a timer. */
-#define TIMER(name, mode) timer(name, __FILE__, __func__, __LINE__, mode)
+#define TIMER(name, mode) jur_timer(name, __FILE__, __func__, __LINE__, mode)
 
 #define __deprecated__ __attribute__((deprecated))
 
@@ -225,7 +225,7 @@
 #define TBLNT TBLNTMAX
 
 /* Maximum number of column densities in emissivity tables. */
-#define TBLNUMAX 320 //TODO: TBLNU 304
+#define TBLNUMAX 400 //TODO: TBLNU 304
 #define TBLNU TBLNUMAX
 
 /* Maximum number of scattering models. */
@@ -361,6 +361,7 @@ typedef struct { /// Forward model control parameters. /////////////////////////
   int retrr;              /// Retrieval of particle size (0=no, 1=yes)
   int retss;              /// Retrieval of particle size distribution width (0=no, 1=yes)
   queue_t queue;          /// work queue architecture introduced for GPU acceleration
+  char jur_tblbase[LEN];       /// Added, because jurassic-gpu reads tables in ASCII and jurassic-scatter in binary format
 } ctl_t; ///////////////////////////////////////////////////////////////////////
 
 typedef struct {  /// Point on the Line-of-sight data without storing //////////

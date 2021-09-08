@@ -207,8 +207,8 @@
 
 		// gas absorption continua configuration
 		static int ig_co2 = -999, ig_h2o = -999;
-		if((ctl->ctm_h2o) && (ig_h2o == -999)) ig_h2o = find_emitter(ctl, "H2O");
-		if((ctl->ctm_co2) && (ig_co2 == -999)) ig_co2 = find_emitter(ctl, "CO2");
+		if((ctl->ctm_h2o) && (ig_h2o == -999)) ig_h2o = jur_find_emitter(ctl, "H2O");
+		if((ctl->ctm_co2) && (ig_co2 == -999)) ig_co2 = jur_find_emitter(ctl, "CO2");
 		// binary switches for the four gases
 		char const fourbit = (char)
                 ( ( (1 == ctl->ctm_co2) && (ig_co2 >= 0) )*0b1000   // CO2
@@ -258,7 +258,7 @@
     
 	__host__
 	void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs) {
-    printf("formod_GPU was called!\n");
+    printf("DEBUG formod_GPU was called!\n");
     static ctl_t *ctl_G=NULL;
 		static trans_table_t *tbl_G=NULL;
 

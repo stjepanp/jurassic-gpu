@@ -47,10 +47,10 @@ int main(
   ALLOC(obs, obs_t, 1);
   
   /* Read control parameters... */
-  read_ctl(argc, argv, &ctl);
+  jur_read_ctl(argc, argv, &ctl);
   
   /* Read observation geometry... */
-  read_obs(".", argv[2], &ctl, obs);
+  jur_read_obs(".", argv[2], &ctl, obs);
 
   /* Write info... */
   printf("Write spectra: %s\n", argv[3]);

@@ -39,7 +39,7 @@ int main(
   nu = atof(argv[2]);
 
   /* Compute Planck function... */
-  printf("%.10g\n", planck(t, nu));
+  printf("%.10g\n", jur_planck(t, nu));
 
   return EXIT_SUCCESS;
 }

@@ -40,7 +40,7 @@ int main(
   jsec = atof(argv[1]);
 
   /* Convert time... */
-  jsec2time(jsec, &year, &mon, &day, &hour, &min, &sec, &remain);
+  jur_jsec2time(jsec, &year, &mon, &day, &hour, &min, &sec, &remain);
   printf("%d %d %d %d %d %d %g\n", year, mon, day, hour, min, sec, remain);
 
   return EXIT_SUCCESS;

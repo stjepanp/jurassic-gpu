@@ -89,7 +89,7 @@ ERRMSG("Out of memory!");
 			__FILE__, __func__, __LINE__, #var, var);
 
 /*! Start or stop a timer. */
-#define TIMER(name, mode) timer(name, __FILE__, __func__, __LINE__, mode)
+#define TIMER(name, mode) jur_timer(name, __FILE__, __func__, __LINE__, mode)
 
 /*! Read string tokens. */
 #define TOK(line, tok, format, var, saveptr) {			\

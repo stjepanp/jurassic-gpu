@@ -49,24 +49,24 @@ int main(
   ALLOC(obs, obs_t, 1);
   
   /* Read control parameters... */
-  read_ctl(argc, argv, &ctl);
+  jur_read_ctl(argc, argv, &ctl);
   
   /* Read observation geometry... */
-  read_obs(".", argv[2], &ctl, obs);
+  jur_read_obs(".", argv[2], &ctl, obs);
 
   /* Read atmospheric data... */
-  read_atm(".", argv[3], &ctl, atm);
+  jur_read_atm(".", argv[3], &ctl, atm);
   // to verify that we read in the atms correctly
   //   write_atm(".", "atm_ref.tab", &ctl, atm);
 
   /* Call forward model... */
   // warmp-up, some initialization will happen during the first call
   if (0 == ctl.checkmode) TIMER("warm-up", 1);
-  formod(&ctl, atm, obs);
+  jur_formod(&ctl, atm, obs);
   if (0 == ctl.checkmode) TIMER("warm-up", 3);
 
   /* Write radiance data... for reference */
-  write_obs(".", argv[4], &ctl, obs);
+  jur_write_obs(".", argv[4], &ctl, obs);
 
 #ifdef BENCHMARK_FORMOD
 
@@ -97,7 +97,7 @@ int main(
         // run some iterations to improve on the stats
         for(int it = 0; it < niterations; ++it) {
             if (0 == ctl.checkmode) TIMER("formod", 1);
-            formod(ctl_bench, atm, obs_bench); // benchmarking this routine
+              jur_formod(ctl_bench, atm, obs_bench); // benchmarking this routine
             double const dt = (0 == ctl.checkmode) ? TIMER("formod", -3) : 0; // -3:silent timer
             time_stats[0] += 1;
             time_stats[1] += dt;

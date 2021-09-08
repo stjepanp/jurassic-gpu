@@ -35,7 +35,7 @@ http://www.fz-juelich.de/ias/jsc/jurassic
 #include "jurassic.h"
 
 /*! Compose state vector or parameter vector. */
-size_t atm2x(
+size_t jur_atm2x(
 		ctl_t const *ctl,
 		atm_t const *atm,
 		gsl_vector * x,
@@ -43,7 +43,7 @@ size_t atm2x(
 		int *ipa);
 
 /*! Add elements to state vector. */
-void atm2x_help(
+void jur_atm2x_help(
 		atm_t const *atm,
 		double zmin,
 		double zmax,
@@ -55,7 +55,7 @@ void atm2x_help(
 		size_t * n);
 
 /*! Compute brightness temperature. */
-double brightness(
+double jur_brightness(
 		double const rad,
 		double const nu) __deprecated__;
 
@@ -67,19 +67,19 @@ double brightness(
 // 		double *lat) __deprecated__;
 
 /*! Interpolate climatological data. */
-void climatology(
+void jur_climatology(
 		ctl_t const * ctl,
 		atm_t * atm_mean);
 
 /*! Compute carbon dioxide continuum (optical depth). */
-double ctmco2(
+double jur_ctmco2(
 		double nu,
 		double p,
 		double t,
 		double u) __deprecated__;
 
 /*! Compute water vapor continuum (optical depth). */
-double ctmh2o(
+double jur_ctmh2o(
 		double nu,
 		double p,
 		double t,
@@ -87,62 +87,62 @@ double ctmh2o(
 		double u) __deprecated__;
 
 /*! Compute nitrogen continuum (absorption coefficient). */
-double ctmn2(
+double jur_ctmn2(
 		double nu,
 		double p,
 		double t) __deprecated__;
 
 /*! Compute oxygen continuum (absorption coefficient). */
-double ctmo2(
+double jur_ctmo2(
 		double nu,
 		double p,
 		double t) __deprecated__;
 
 /*! Copy and initialize atmospheric data. */
-void copy_atm(
+void jur_copy_atm(
 		ctl_t const *ctl,
 		atm_t * atm_dest,
 		atm_t const *atm_src,
 		int const init);
 
 /*! Copy and initialize observation data. */
-void copy_obs(
+void jur_copy_obs(
 		ctl_t const *ctl,
 		obs_t * obs_dest,
 		obs_t const *obs_src,
 		int const init);
 
 /*! Find index of an emitter. */
-int find_emitter(
+int jur_find_emitter(
 		ctl_t const * const ctl,
 		char const * const emitter);
 
 /*! Determine ray paths and compute radiative transfer. */
-void formod(
+void jur_formod(
 		ctl_t const *ctl,
 		atm_t * atm,
 		obs_t * obs);
 
 /*! Apply field of view convolution. */
-void formod_fov(
+void jur_formod_fov(
 		ctl_t const *ctl,
 		obs_t * obs);
 
 /*! Compute radiative transfer for a pencil beam. */
-void formod_pencil(
+void fr_formod_pencil(
 		ctl_t const *ctl,
 		atm_t * atm,
 		obs_t * obs,
 		int const ir);
 
 /*! Apply RFM for radiative transfer calculations. */
-void formod_rfm(
+void jur_formod_rfm(
 		ctl_t const *ctl,
 		atm_t * atm,
 		obs_t * obs);
 
 /*! Compute Planck source function. */
-void formod_srcfunc(
+void jur_formod_srcfunc(
 		ctl_t const *ctl,
 		trans_table_t const *tbl,
 		double const t,
@@ -161,36 +161,36 @@ void formod_srcfunc(
 // 		double lat) __deprecated__;
 
 /*! Set hydrostatic equilibrium. */
-void hydrostatic(
+void jur_hydrostatic(
 		ctl_t const *ctl,
 		atm_t * atm) __deprecated__;
 
 /*! Set hydrostatic equilibrium for individual profile. */
-void hydrostatic_1d(
+void jur_hydrostatic_1d(
 		ctl_t const *ctl,
 		atm_t * atm,
 		int const ip0,
 		int const ip1) __deprecated__;
 
 /*! Determine name of state vector quantity for given index. */
-void idx2name(
+void jur_idx2name(
 		ctl_t * ctl,
 		int idx,
 		char *quantity);
 
 /*! Initialize look-up tables. */
-void init_tbl(
+void jur_init_tbl(
 		ctl_t const * ctl,
 		trans_table_t * tbl);
 
 /*! Interpolate complete atmospheric data set. */
-void intpol_atm(
+void jur_intpol_atm(
 		ctl_t * ctl,
 		atm_t * atm_dest,
 		atm_t * atm_src);
 
 /*! Interpolate atmospheric data for given geolocation. */
-void intpol_atm_geo(
+void jur_intpol_atm_geo(
 		ctl_t const *ctl,
 		atm_t *atm,
 		double const z0,
@@ -202,7 +202,7 @@ void intpol_atm_geo(
 		double *k);
 
 /*! Interpolate 1D atmospheric data (vertical profile). */
-void intpol_atm_1d(
+void jur_intpol_atm_1d(
 		ctl_t const *ctl,
 		atm_t const *atm,
 		int const idx0,
@@ -214,7 +214,7 @@ void intpol_atm_1d(
 		double *k);
 
 /*! Interpolate 2D atmospheric data (satellite track). */
-void intpol_atm_2d(
+void jur_intpol_atm_2d(
 		ctl_t const *ctl,
 		atm_t *atm,
 		double const z0,
@@ -226,7 +226,7 @@ void intpol_atm_2d(
 		double *k);
 
 /*! Interpolate 3D atmospheric data (Lagrangian grid). */
-void intpol_atm_3d(
+void jur_intpol_atm_3d(
 		ctl_t const *ctl,
 		atm_t *atm,
 		double const z0,
@@ -238,7 +238,7 @@ void intpol_atm_3d(
 		double *k);
 
 /*! Interpolate emissivity from look-up tables. */
-double intpol_tbl_eps(
+double jur_intpol_tbl_eps(
 		trans_table_t const *tbl,
 		int const ig,
 		int const id,
@@ -247,7 +247,7 @@ double intpol_tbl_eps(
 		double const u);
 
 /*! Interpolate column density from look-up tables. */
-double intpol_tbl_u(
+double jur_intpol_tbl_u(
 		trans_table_t const *tbl,
 		int const ig,
 		int const id,
@@ -256,7 +256,7 @@ double intpol_tbl_u(
 		double const eps);
 
 /*! Convert seconds to date. */
-void jsec2time(
+void jur_jsec2time(
 		double const jsec,
 		int *year,
 		int *mon,
@@ -267,14 +267,14 @@ void jsec2time(
 		double *remain);
 
 /*! Compute Jacobians. */
-void kernel(
+void jur_kernel(
 		ctl_t const *ctl,
 		atm_t *atm,
 		obs_t *obs,
 		gsl_matrix * k) __deprecated__;
 
 /*! Compose measurement vector. */
-size_t obs2y(
+size_t jur_obs2y(
 		ctl_t const *ctl,
 		obs_t const *obs,
 		gsl_vector * y,
@@ -282,48 +282,48 @@ size_t obs2y(
 		int *ira);
 
 /*! Compute Planck function. */
-double planck(
+double jur_planck(
 		double const t,
 		double const nu);
 
-void altitude_range(
+void jur_altitude_range(
 		atm_t const *atm,
 		double *zmin,
 		double *zmax) __deprecated__;
 
 /*! Change segment lengths according to trapezoid rule */
-void trapezoid_rule(
+void jur_trapezoid_rule(
 		int const np,
 		double ds[]) __deprecated__;
 
 /*! Read atmospheric data. */
-void read_atm(
+void jur_read_atm(
 		const char *dirname,
 		const char *filename,
 		ctl_t * ctl,
 		atm_t * atm);
 
 /*! Read forward model control parameters. */
-void read_ctl(
+void jur_read_ctl(
 		int argc,
 		char *argv[],
 		ctl_t * ctl);
 
 /*! Read matrix. */
-void read_matrix(
+void jur_read_matrix(
 		const char *dirname,
 		const char *filename,
 		gsl_matrix * matrix);
 
 /*! Read observation data. */
-void read_obs(
+void jur_read_obs(
 		const char *dirname,
 		const char *filename,
 		ctl_t * ctl,
 		obs_t * obs);
 
 /*! Read observation data in RFM format. */
-double read_obs_rfm(
+double jur_read_obs_rfm(
 		const char *basename,
 		double z,
 		double *nu,
@@ -331,14 +331,14 @@ double read_obs_rfm(
 		int n);
 
 /*! Read RFM spectrum. */
-void read_rfm_spec(
+void jur_read_rfm_spec(
 		const char *filename,
 		double *nu,
 		double *rad,
 		int *npts);
 
 /*! Read shape function. */
-int read_shape(
+int jur_read_shape(
 		const char *filename,
 		double *x,
 		double *y,
@@ -350,7 +350,7 @@ int read_shape(
 // 		double t) __deprecated__;
 
 /*! Search control parameter file for variable entry. */
-double scan_ctl(
+double jur_scan_ctl(
 		int argc,
 		char *argv[],
 		const char *varname,
@@ -359,7 +359,7 @@ double scan_ctl(
 		char *value);
 
 /*! Convert date to seconds. */
-void time2jsec(
+void jur_time2jsec(
 		int year,
 		int mon,
 		int day,
@@ -370,7 +370,7 @@ void time2jsec(
 		double *jsec);
 
 /*! Measure wall-clock time. */
-double timer(
+double jur_timer(
 		const char *name,
 		const char *file,
 		const char *func,
@@ -378,20 +378,20 @@ double timer(
 		int mode);
 
 /*! Write atmospheric data. */
-void write_atm(
+void jur_write_atm(
 		const char *dirname,
 		const char *filename,
 		ctl_t * ctl,
 		atm_t * atm);
 
 /*! Write atmospheric data in RFM format. */
-void write_atm_rfm(
+void jur_write_atm_rfm(
 		const char *filename,
 		ctl_t const *ctl,
 		atm_t const *atm);
 
 /*! Write matrix. */
-void write_matrix(
+void jur_write_matrix(
 		const char *dirname,
 		const char *filename,
 		ctl_t * ctl,
@@ -403,20 +403,20 @@ void write_matrix(
 		const char *sort);
 
 /*! Write observation data. */
-void write_obs(
+void jur_write_obs(
 		const char *dirname,
 		const char *filename,
 		ctl_t * ctl,
 		obs_t * obs);
 
 /*! Decompose parameter vector or state vector. */
-void x2atm(
+void jur_x2atm(
 		ctl_t const *ctl,
 		gsl_vector *x,
 		atm_t * atm);
 
 /*! Extract elements from state vector. */
-void x2atm_help(
+void jur_x2atm_help(
 		atm_t * atm,
 		double zmin,
 		double zmax,
@@ -425,11 +425,11 @@ void x2atm_help(
 		size_t * n);
 
 /*! Decompose measurement vector. */
-void y2obs(ctl_t * ctl, gsl_vector * y, obs_t * obs);
+void jur_y2obs(ctl_t * ctl, gsl_vector * y, obs_t * obs);
 
 /* Helpers */
-FILE* mkFile(const char*, const char*, const char*);
-void shell(const char*, const char*);
+FILE* jur_mkFile(const char*, const char*, const char*);
+void jur_shell(const char*, const char*);
 // double c01(double);
 
 /* stringify the value of a macro, two expansion levels needed */

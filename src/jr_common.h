@@ -70,7 +70,7 @@
 #else
 			tbl = (trans_table_t*)malloc(sizeof(trans_table_t));
 #endif            
-			init_tbl(ctl, tbl); // CPU reads the table content from files
+			jur_init_tbl(ctl, tbl); // CPU reads the table content from files
 			}
 #pragma omp barrier
 		}
@@ -85,7 +85,7 @@
 
 	// Table lookups ////////////////////////////////////////////////////////////
 	__host__ __device__ __ext_inline__
-	int locate(double const *ptr xx, int const n, double const x) {
+	int jur_locate(double const *ptr xx, int const n, double const x) {
         int ilo = 0, ihi = n - 1, i = (n - 1) >> 1;
         if(xx[i] < xx[i + 1]) {
             while (ihi > ilo + 1) { // divergent execution on GPU happens here
@@ -211,7 +211,7 @@
 
 	// Gravity as a function of altitude and latitude
 	__host__ __device__ __ext_inline__
-    double gravity(double const z, double const lat) {
+    double jur_gravity(double const z, double const lat) {
         double const deg2rad = M_PI/180., x = sin(lat*deg2rad), y = sin(2*lat*deg2rad);
         return 9.780318*(1. + 0.0053024*x*x - 5.8e-6*y*y) - 3.086e-3*z;
     } // gravity
@@ -473,14 +473,14 @@
 #endif // CURTIS_GODSON
 
 	__host__ __device__ __ext_inline__ 
-	double refractivity(double const p, double const t)
+	double jur_refractivity(double const p, double const t)
     {   return 7.753e-05*p/t; }
 
 #define rad2grd (180/M_PI)
 #define grd2rad (M_PI/180)
 
 	__host__ __device__ __ext_inline__ 
-	void cart2geo(double const x[], double *alt, double *lon, double *lat) {
+	void jur_cart2geo(double const x[], double *alt, double *lon, double *lat) {
 		double const radius = NORM(x);
 		*lat = asin(x[2]/radius)*rad2grd;
 		*lon = atan2(x[1], x[0])*rad2grd;
@@ -492,7 +492,7 @@
     {   return NORM(x) - RE; } // compute the altitude only
 
 	__host__ __device__ __ext_inline__
-	void geo2cart(double const alt, double const lon, double const lat, double x[]) {
+	void jur_geo2cart(double const alt, double const lon, double const lat, double x[]) {
 		double const radius = alt + RE, clat = cos(lat*grd2rad);
 		x[0] = radius*clat*cos(lon*grd2rad);
 		x[1] = radius*clat*sin(lon*grd2rad);
@@ -500,7 +500,7 @@
 	} // geo2cart
 
 	__host__ __device__ __ext_inline__
-	void tangent_point(pos_t const los[], const int np, const int ip, double *tpz, double *tplon, double *tplat) {
+	void jur_tangent_point(pos_t const los[], const int np, const int ip, double *tpz, double *tplon, double *tplat) {
 		// ip (=) gsl_stats_min_index(los->z, 1, (size_t) los->np), found while tracing!
 		if(ip <= 0 || ip >= np-1) {		// Nadir or zenith
 			*tpz	 = los[np-1].z;
@@ -526,15 +526,15 @@
             
 			*tpz = (a*x + b)*x + c;
 			double v[3], v0[3], v2[3], dummy;
-			geo2cart(los[ip - 1].z, los[ip - 1].lon, los[ip - 1].lat, v0);
-			geo2cart(los[ip + 1].z, los[ip + 1].lon, los[ip + 1].lat, v2);
+			jur_geo2cart(los[ip - 1].z, los[ip - 1].lon, los[ip - 1].lat, v0);
+			jur_geo2cart(los[ip + 1].z, los[ip + 1].lon, los[ip + 1].lat, v2);
 //             printf("# %s v0= %g %g %g\n", __func__, v0[0], v0[1], v0[2]);
 //             printf("# %s v2= %g %g %g\n", __func__, v2[0], v2[1], v2[2]);
 //             printf("# %s x2= %g\n", __func__, x2);
 			UNROLL
               for(int i = 0; i < 3; i++) v[i] = lip(0.0, v0[i], x2, v2[i], x);
 //          printf("# %s v= %g %g %g\n", __func__, v[0], v[1], v[2]);
-			cart2geo(v, &dummy, tplon, tplat);
+			jur_cart2geo(v, &dummy, tplon, tplat);
 		}
 	} // tangent_point_pos
 
@@ -549,7 +549,7 @@
 	__host__ __device__ __ext_inline__ 
 	void intpol_atm_1d_pt(ctl_t const *ctl, atm_t const *atm,
 			int const idx0, int const n, double const z0, double *p, double *t) {
-		int const ip = idx0 + locate(&atm->z[idx0], n, z0);						        // Get array index
+		int const ip = idx0 + jur_locate(&atm->z[idx0], n, z0);						        // Get array index
 		*p = eip(atm->z[ip], atm->p[ip], atm->z[ip + 1], atm->p[ip + 1], z0);			 // Interpolate
 		*t = lip(atm->z[ip], atm->t[ip], atm->z[ip + 1], atm->t[ip + 1], z0);
 	} // intpol_atm_1d_pt
@@ -557,7 +557,7 @@
 	__host__ __device__ __ext_inline__ 
 	void intpol_atm_1d_qk(ctl_t const *ctl, atm_t const *atm,
 			int const idx0, int const n, double const z0, double q[], double k[]) {
-		int const ip = idx0 + locate(&atm->z[idx0], n, z0);																	// Get array index
+		int const ip = idx0 + jur_locate(&atm->z[idx0], n, z0);																	// Get array index
 		for(int ig = 0; ig < ctl->ng; ig++) {
 			q[ig] = lip(atm->z[ip], atm->q[ig][ip], atm->z[ip + 1], atm->q[ig][ip + 1], z0);	// Interpolate
 		} // ig
@@ -597,8 +597,8 @@
 		altitude_range_nn(atm, atmIdx, atmNp, &zmin, &zmax);
 		if(obs->obsz[ir] < zmin)        return 0;																		// Check observer altitude
 		if(obs->vpz[ir] > zmax - 0.001) return 0;																		// Check view point altitude
-		geo2cart(obs->obsz[ir], obs->obslon[ir], obs->obslat[ir], xobs);						// Cart. coordinates of observer
-		geo2cart(obs->vpz[ir],	obs->vplon[ir],  obs->vplat[ir],	xvp);							// and view point
+		jur_geo2cart(obs->obsz[ir], obs->obslon[ir], obs->obslat[ir], xobs);						// Cart. coordinates of observer
+		jur_geo2cart(obs->vpz[ir],	obs->vplon[ir],  obs->vplat[ir],	xvp);							// and view point
 		UNROLL
 			for(int i = 0; i < 3; i++) ex0[i] = xvp[i] - xobs[i];											// Determine initial tangent vector
 		double const norm = NORM(ex0);
@@ -633,16 +633,16 @@
 				double const cosa = fabs(dot);
 				if(cosa != 0.) ds = fmin(ds, dz/cosa);
 			}
-			cart2geo(x, &z, &lon, &lat);																							// Determine geolocation
+			jur_cart2geo(x, &z, &lon, &lat);																							// Determine geolocation
 			if((z < zmin) || (z > zmax)) {																						// LOS escaped
 				double xh[3];
 				stop = (z < zmin) ? 2 : 1;
-				geo2cart(los[np - 1].z, los[np - 1].lon, los[np - 1].lat, xh);
+				jur_geo2cart(los[np - 1].z, los[np - 1].lon, los[np - 1].lat, xh);
 				double const zfrac = (z < zmin) ? zmin : zmax;
 				double const frac = (zfrac - los[np - 1].z)/(z - los[np - 1].z);
 				UNROLL
 					for(int i = 0; i < 3; i++) x[i] = xh[i] + frac*(x[i] - xh[i]);
-				cart2geo(x, &z, &lon, &lat);
+				jur_cart2geo(x, &z, &lon, &lat);
 				los[np - 1].ds = ds*frac;
 				ds = 0.;
 			}
@@ -663,19 +663,19 @@
 
 			double n = 1., ng[] = {0., 0., 0.};
 			if(ctl->refrac && z <= zrefrac) {																					// Compute gradient of refractivity
-				n += refractivity(p, t);
+				n += jur_refractivity(p, t);
 				double xh[3];
 				UNROLL
 					for(int i = 0; i < 3; i++) xh[i] = x[i] + 0.5*ds*ex0[i];
-				cart2geo(xh, &z, &lon, &lat);
+				jur_cart2geo(xh, &z, &lon, &lat);
 				intpol_atm_geo_pt(ctl, atm, (int) atmIdx, atmNp, z, lon, lat, &p, &t);
-				double const n2 = refractivity(p, t);
+				double const n2 = jur_refractivity(p, t);
 				for(int i = 0; i < 3; i++) {
 					double const h = 0.02;
 					xh[i] += h;
-					cart2geo(xh, &z, &lon, &lat);
+					jur_cart2geo(xh, &z, &lon, &lat);
 					intpol_atm_geo_pt(ctl, atm, (int) atmIdx, atmNp, z, lon, lat, &p, &t);
-					ng[i] = (refractivity(p, t) - n2)/h;
+					ng[i] = (jur_refractivity(p, t) - n2)/h;
 					xh[i] -= h;
 				} // i
 			}
@@ -695,7 +695,7 @@
 #endif
 
 		// Get tangent point (before changing segment lengths!)
-		tangent_point(los, np, z_low_idx, &obs->tpz[ir], &obs->tplon[ir], &obs->tplat[ir]);
+		jur_tangent_point(los, np, z_low_idx, &obs->tpz[ir], &obs->tplon[ir], &obs->tplat[ir]);
 		trapezoid_rule_pos(np, los);
 		column_density(ctl->ng, los, np);
 #ifdef CURTIS_GODSON
@@ -738,7 +738,7 @@
             double mean = 0.;
             for(int i = 0; i < npts; i++) {
                 double const z = lip(0.0, atm->z[ip - 1], npts - 1.0, atm->z[ip], (double) i);
-                double const grav = gravity(z, lat);
+                double const grav = jur_gravity(z, lat);
                 if(ig_h2o >= 0) e = lip(0.0, atm->q[ig_h2o][ip - 1], npts - 1.0, atm->q[ig_h2o][ip], (double) i);
                 double const temp = lip(0.0, atm->t[ip - 1], npts - 1.0, atm->t[ip], (double) i);
                 mean += (e*mmh2o + (1 - e)*mmair)*grav/(GSL_CONST_MKSA_MOLAR_GAS*temp*npts);
@@ -751,7 +751,7 @@
             double mean = 0.;
             for(int i = 0; i < npts; i++) {
                 double const z = lip(0.0, atm->z[ip + 1], npts - 1.0, atm->z[ip], (double) i);
-                double const grav = gravity(z, lat);
+                double const grav = jur_gravity(z, lat);
                 if(ig_h2o >= 0) e = lip(0.0, atm->q[ig_h2o][ip + 1], npts - 1.0, atm->q[ig_h2o][ip], (double) i);
                 double const temp = lip(0.0, atm->t[ip + 1], npts - 1.0, atm->t[ip], (double) i);
                 mean += (e*mmh2o + (1 - e)*mmair)*grav/(GSL_CONST_MKSA_MOLAR_GAS*temp*npts);

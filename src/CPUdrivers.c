@@ -107,7 +107,8 @@
 	// The full forward model on the CPU ////////////////////////////////////////////
 	__host__
 	void formod_CPU(ctl_t const *ctl, atm_t *atm, obs_t *obs) {
-        if (ctl->checkmode) {
+    printf("DEBUG formod_CPU was called!\n");
+       if (ctl->checkmode) {
             printf("# %s: checkmode = %d, no actual computation is performed!\n", __func__, ctl->checkmode);
             return; // do nothing here
         } // checkmode
@@ -124,8 +125,8 @@
 
 		// gas absorption continua configuration
 		static int ig_co2 = -999, ig_h2o = -999;
-		if((ctl->ctm_h2o) && (-999 == ig_h2o)) ig_h2o = find_emitter(ctl, "H2O");
-		if((ctl->ctm_co2) && (-999 == ig_co2)) ig_co2 = find_emitter(ctl, "CO2");
+		if((ctl->ctm_h2o) && (-999 == ig_h2o)) ig_h2o = jur_find_emitter(ctl, "H2O");
+		if((ctl->ctm_co2) && (-999 == ig_co2)) ig_co2 = jur_find_emitter(ctl, "CO2");
 		// binary switches for the four gases
 		char const fourbit = (char) (
                   ( (1 == ctl->ctm_co2) && (ig_co2 >= 0) )*8   // CO2
@@ -176,7 +177,7 @@
 #endif
 
 	__host__
-	void formod(ctl_t const *ctl, atm_t *atm, obs_t *obs) {
+	void jur_formod(ctl_t const *ctl, atm_t *atm, obs_t *obs) {
         if (ctl->checkmode) {
             static int nr_last_time = -999;
             if (obs->nr != nr_last_time) {

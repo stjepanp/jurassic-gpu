@@ -46,7 +46,7 @@ int main(
   remain = atof(argv[7]);
 
   /* Convert... */
-  time2jsec(year, mon, day, hour, min, sec, remain, &jsec);
+  jur_time2jsec(year, mon, day, hour, min, sec, remain, &jsec);
   printf("%.2f\n", jsec);
 
   return EXIT_SUCCESS;
