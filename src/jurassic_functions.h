@@ -118,15 +118,11 @@ int jur_find_emitter(
 		char const * const emitter);
 
 /*! Determine ray paths and compute radiative transfer. */
-void jur_formod(
-		ctl_t const *ctl,
-		atm_t * atm,
-		obs_t * obs);
-
-/*! Apply field of view convolution. */
-void jur_formod_fov(
-		ctl_t const *ctl,
-		obs_t * obs);
+void jur_formod(ctl_t const *ctl, 
+    atm_t *atm, 
+    obs_t *obs, 
+    aero_t const *aero, 
+    los_t *los);
 
 /*! Compute radiative transfer for a pencil beam. */
 void fr_formod_pencil(

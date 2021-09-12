@@ -431,6 +431,9 @@
 		for(int ig = 0; ig < NG; ig++) los->q[ig] = q[ig];
 		for(int iw = 0; iw < NW; iw++) los->k[iw] = k[iw];
 		los->ds = ds;
+    //Added, has to be removed soon:
+    //los->aeroi = 0;
+    //los->aerofac = 0;
 	} // write_pos_point
 
 	// Change segment lengths according to trapezoid rule

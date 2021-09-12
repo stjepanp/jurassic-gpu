@@ -4,12 +4,13 @@
 #include <stdio.h>
 
 
-void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs);
+//void jur_formod(ctl_t const *ctl, atm_t *atm, obs_t *obs);
 
-void formod_multiple_packages(ctl_t *ctl, atm_t *atm, obs_t *packages, int n) {
-  printf("number of packages.. %d\n", n);
+void formod_multiple_packages(ctl_t *ctl, atm_t *atm,  aero_t *aero, int n, obs_t *packages, los_t **los_packages) { 
+ printf("number of packages.. %d\n", n);
   for(int i = 0; i < n; i++) {
-    printf("DEBUG call formod_GPU..\n");
-    formod_GPU(ctl, atm, &packages[i]);
+    printf("DEBUG call jur_formod..\n");
+    //aero and los are optionl
+    jur_formod(ctl, atm, &packages[i], aero, los_packages != NULL ? los_packages[i] : NULL);
   }
 }

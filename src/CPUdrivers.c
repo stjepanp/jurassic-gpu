@@ -50,7 +50,8 @@
 	__host__
 	void apply_kernels_CPU(trans_table_t const *tbl, ctl_t const *ctl, obs_t *obs, 
         pos_t const (*restrict los)[NLOS], int const np[], 
-        int const ig_co2, int const ig_h2o, char const fourbit) {
+        int const ig_co2, int const ig_h2o, char const fourbit,
+        double const (*restrict aero_beta)[ND]) { // aero_beta is added
 
 #pragma omp for
 		for(int ir = 0; ir < obs->nr; ir++) { // loop over independent rays
@@ -68,12 +69,16 @@
 
 					// compute extinction coefficient
 					double const beta_ds = multi_continua_CPU(fourbit, ctl, &(los[ir][ip]), ig_co2, ig_h2o, id);
-					// compute transmission with the EGA method
+					
+          //Added:
+          double const aero_ds = los[ir][ip].aerofac * aero_beta[los[ir][ip].aeroi][id] * los[ir][ip].ds;
+          
+          // compute transmission with the EGA method
 					double const tau_gas = apply_ega_core(tbl, &(los[ir][ip]), tau_path[id], ctl->ng, id);
 					// compute the source term
 					double const planck = src_planck_core(tbl, los[ir][ip].t, id);
 					// perform integration
-					new_obs_core(obs, ir, id, beta_ds, planck, tau_gas);
+					new_obs_core(obs, ir, id, beta_ds + aero_ds, planck, tau_gas);
 
 				} // id --> could be vectorized over detector channels
 #ifdef GPUDEBUG
@@ -104,14 +109,56 @@
 
 	// ################ end of CPU driver routines ##############
 
+  void convert_los_t_to_pos_t(pos_t (*pos)[NLOS], int *np, double *tsurf, los_t const *los, int nr) {
+    for(int ir = 0; ir < nr; ir++) {
+      np[ir] = los[ir].np;
+      tsurf[ir] = los[ir].tsurf;
+      for(int ip = 0; ip < np[ir]; ip++) {
+        //z, lon, lat, p, t, q[NG], k[NW], aeroi, aerofac, tsurf?, ds, u[NG]
+        pos[ir][ip].z   = los[ir].z[ip];
+        pos[ir][ip].lon = los[ir].lon[ip];
+        pos[ir][ip].lat = los[ir].lat[ip];
+        pos[ir][ip].p   = los[ir].p[ip];
+        pos[ir][ip].t   = los[ir].t[ip];
+
+        for(int i = 0; i < NG; i++)
+          pos[ir][ip].q[i] = los[ir].q[ip][i];
+
+        for(int i = 0; i < NW; i++)
+          pos[ir][ip].k[i] = los[ir].k[ip][i];
+
+        if(-999 == los[ir].aeroi[ip])
+          pos[ir][ip].aeroi = 0;
+        else
+          pos[ir][ip].aeroi = los[ir].aeroi[ip]; // dodaj -999 => 0
+
+
+        pos[ir][ip].aerofac = los[ir].aerofac[ip];
+
+        pos[ir][ip].ds = los[ir].ds[ip];
+
+        for(int i = 0; i < NG; i++)
+          pos[ir][ip].u[i] = los[ir].u[ip][i];
+
+      }
+    }
+  }
+
 	// The full forward model on the CPU ////////////////////////////////////////////
 	__host__
-	void formod_CPU(ctl_t const *ctl, atm_t *atm, obs_t *obs) {
+	void formod_CPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
+                  aero_t const *aero, los_t const *arg_los) {
     printf("DEBUG formod_CPU was called!\n");
-       if (ctl->checkmode) {
-            printf("# %s: checkmode = %d, no actual computation is performed!\n", __func__, ctl->checkmode);
-            return; // do nothing here
-        } // checkmode
+    
+    printf("DEBUG ");
+    for(int i = 0; i < 10; i++)
+      printf("%d ", arg_los[i].np);
+    printf("\n");
+  
+    if (ctl->checkmode) {
+      printf("# %s: checkmode = %d, no actual computation is performed!\n", __func__, ctl->checkmode);
+      return; // do nothing here
+    } // checkmode
 
 		assert(obs);
 
@@ -122,6 +169,8 @@
 		double *t_surf = (double*)malloc((obs->nr)*sizeof(double));
 		int *np = (int*)malloc((obs->nr)*sizeof(int));
 		pos_t (*los)[NLOS] = (pos_t (*)[NLOS])malloc((obs->nr)*(NLOS)*sizeof(pos_t));
+
+//pos_t const (*restrict los)[NLOS],
 
 		// gas absorption continua configuration
 		static int ig_co2 = -999, ig_h2o = -999;
@@ -134,11 +183,24 @@
 				+   (1 == ctl->ctm_n2)                    *2   // N2
 				+   (1 == ctl->ctm_o2)                    *1); // O2
 
-        hydrostatic1d_CPU(ctl, atm, obs->nr, ig_h2o); // in this call atm might get modified
-        raytrace_rays_CPU(ctl, atm, obs, los, t_surf, np);
+
+    // "beta_a" -> 'a', "beta_e" -> 'e'
+    char const beta_type = ctl->sca_ext[5];
+ 
+    hydrostatic1d_CPU(ctl, atm, obs->nr, ig_h2o); // in this call atm might get modified
+    if(arg_los == NULL) {
+      // QUESTION: those lines of sight are not the same as one calcucaled in jurassic-scatter,
+      // also, for lot of them in this version number of points equals 0
+      raytrace_rays_CPU(ctl, atm, obs, los, t_surf, np);
+    } else {
+
+      convert_los_t_to_pos_t(los, np, t_surf, arg_los, obs->nr);
+    }
+
 #pragma omp parallel
 		{
-			apply_kernels_CPU(tbl, ctl, obs, los, np, ig_co2, ig_h2o, fourbit);
+			apply_kernels_CPU(tbl, ctl, obs, los, np, ig_co2, ig_h2o, fourbit,
+                        ('a' == beta_type) ? aero->beta_a : aero->beta_e);
 			surface_terms_CPU(tbl, obs, t_surf, ctl->nd);
 		} // parallel
 
@@ -177,7 +239,8 @@
 #endif
 
 	__host__
-	void jur_formod(ctl_t const *ctl, atm_t *atm, obs_t *obs) {
+
+	void jur_formod(ctl_t const *ctl, atm_t *atm, obs_t *obs, aero_t const *aero, los_t *los) {
         if (ctl->checkmode) {
             static int nr_last_time = -999;
             if (obs->nr != nr_last_time) {
@@ -190,6 +253,6 @@
         if (ctl->useGPU) {
             formod_GPU(ctl, atm, obs);
         } else { // USEGPU = 0 means use-GPU-never
-            formod_CPU(ctl, atm, obs);
+            formod_CPU(ctl, atm, obs, aero, los);
         } // useGPU
     } // formod

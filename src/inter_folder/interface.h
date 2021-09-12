@@ -3,6 +3,6 @@
 
 #include "jr_scatter_gpu.h"
 
-void formod_multiple_packages(ctl_t *ctl, atm_t *atm, obs_t *packages, int n); 
+void formod_multiple_packages(ctl_t *ctl, atm_t *atm, aero_t *aero, int n, obs_t *packages, los_t **los_packages); 
 
 #endif

@@ -364,23 +364,25 @@ typedef struct { /// Forward model control parameters. /////////////////////////
   char jur_tblbase[LEN];       /// Added, because jurassic-gpu reads tables in ASCII and jurassic-scatter in binary format
 } ctl_t; ///////////////////////////////////////////////////////////////////////
 
-typedef struct {  /// Point on the Line-of-sight data without storing //////////
-	double z;		    /// Altitude [km].
-	double lon;	    /// Longitude [deg].
-	double lat;	    /// Latitude [deg].
-	double p;		    /// Pressure [hPa].
-	double t;		    /// Temperature [K].
-	double q[NG];	  /// Volume mixing ratio.
-	double k[NW];	  /// Extinction [1/km].
-	double ds;	    /// Segment length [km].
-	double u[NG];	  /// Column density [molecules/cm^2].
+typedef struct {    /// Point on the Line-of-sight data without storing //////////
+	double z;		      /// Altitude [km].
+	double lon;	      /// Longitude [deg].
+	double lat;	      /// Latitude [deg].
+	double p;		      /// Pressure [hPa].
+	double t;		      /// Temperature [K].
+	double q[NG];	    /// Volume mixing ratio.
+	double k[NW];	    /// Extinction [1/km].
+  int aeroi;        /// Aerosol/cloud layer index
+  double aerofac;   /// Aerosol/cloud layer scaling factor for transition layer
+  double ds;	      /// Segment length [km].
+	double u[NG];	    /// Column density [molecules/cm^2].
 #ifdef CURTIS_GODSON
-	double cgp[NG];	/// Curtis-Godson pressure [hPa].
-	double cgt[NG];	/// Curtis-Godson temperature [K].
-	double cgu[NG];	/// Curtis-Godson column density [molecules/cm^2].
+	double cgp[NG];	  /// Curtis-Godson pressure [hPa].
+	double cgt[NG];	  /// Curtis-Godson temperature [K].
+	double cgu[NG];	  /// Curtis-Godson column density [molecules/cm^2].
 #endif
 #ifdef GPUDEBUG
-	int ip, ir;     /// debug helpers
+	int ip, ir;       /// debug helpers
 #endif
 } pos_t; //////////////////////////////////////////////////////////////////////
 
