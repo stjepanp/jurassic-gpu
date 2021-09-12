@@ -124,8 +124,9 @@
 	void multi_version_GPU(char const fourbit, trans_table_t const *tbl, ctl_t const *ctl,
 			obs_t *obs, pos_t const (*restrict los)[NLOS],
 			int const np[], int const ig_co2, int const ig_h2o,
+      double const (*restrict aero_beta)[ND],
 			unsigned const grid, unsigned const block, unsigned const shmem, cudaStream_t const stream) {
-#define LaunchKernel <<< grid, block, shmem, stream >>> (tbl, ctl, obs, los, np, ig_co2, ig_h2o)
+#define LaunchKernel <<< grid, block, shmem, stream >>> (tbl, ctl, obs, los, np, ig_co2, ig_h2o, aero_beta)
 		switch (fourbit) {
 			case 0b0000: fusion_kernel_GPU_0000 LaunchKernel; break;
 			case 0b0001: fusion_kernel_GPU_0001 LaunchKernel; break;
@@ -172,6 +173,41 @@
 
 	// ################ end of GPU driver routines ##############
 
+  void GPU_convert_los_t_to_pos_t(pos_t (*pos)[NLOS], int *np, double *tsurf, los_t const *los, int nr) {
+    for(int ir = 0; ir < nr; ir++) {
+      np[ir] = los[ir].np;
+      tsurf[ir] = los[ir].tsurf;
+      for(int ip = 0; ip < np[ir]; ip++) {
+        //z, lon, lat, p, t, q[NG], k[NW], aeroi, aerofac, tsurf?, ds, u[NG]
+        pos[ir][ip].z   = los[ir].z[ip];
+        pos[ir][ip].lon = los[ir].lon[ip];
+        pos[ir][ip].lat = los[ir].lat[ip];
+        pos[ir][ip].p   = los[ir].p[ip];
+        pos[ir][ip].t   = los[ir].t[ip];
+
+        for(int i = 0; i < NG; i++)
+          pos[ir][ip].q[i] = los[ir].q[ip][i];
+
+        for(int i = 0; i < NW; i++)
+          pos[ir][ip].k[i] = los[ir].k[ip][i];
+
+        if(-999 == los[ir].aeroi[ip])
+          pos[ir][ip].aeroi = 0;
+        else
+          pos[ir][ip].aeroi = los[ir].aeroi[ip]; // dodaj -999 => 0
+
+
+        pos[ir][ip].aerofac = los[ir].aerofac[ip];
+
+        pos[ir][ip].ds = los[ir].ds[ip];
+
+        for(int i = 0; i < NG; i++)
+          pos[ir][ip].u[i] = los[ir].u[ip][i];
+
+      }
+    }
+  }
+
 	// GPU control struct containing GPU version of input, intermediate and output arrays
 	typedef struct {
 		obs_t  *obs_G;
@@ -179,6 +215,7 @@
 		pos_t (*los_G)[NLOS];
 		double *tsurf_G;
 		int    *np_G;
+    double (*aero_beta_G)[ND];
 		cudaStream_t stream;
 	} gpuLane_t;
 
@@ -188,6 +225,8 @@
 			trans_table_t const *tbl_G,
 			atm_t const *atm, // can be made const if we do not get the atms back
 			obs_t *obs,
+      aero_t const *aero,
+      los_t const *arg_los,
 			gpuLane_t const *gpu)
     // a workload manager for the GPU
     {
@@ -199,7 +238,8 @@
         
 		atm_t *atm_G = gpu->atm_G;
 		obs_t *obs_G = gpu->obs_G;
-		pos_t (* los_G)[NLOS] = gpu->los_G;
+    double (*aero_beta_G)[ND] = gpu->aero_beta_G;
+    pos_t (* los_G)[NLOS] = gpu->los_G;
 		double *tsurf_G = gpu->tsurf_G;
 		int *np_G = gpu->np_G;
 		cudaEvent_t finishedEvent;
@@ -218,25 +258,44 @@
 
 		unsigned const nd = ctl->nd, nr = obs->nr; // abbreviate
 
-		cudaStream_t stream = gpu->stream;
+    // "beta_a" -> 'a', "beta_e" -> 'e'
+    char const beta_type = ctl->sca_ext[5];
+		
+    cudaStream_t stream = gpu->stream;
 		copy_data_to_GPU(atm_G, atm, 1*sizeof(atm_t), stream);
 		copy_data_to_GPU(obs_G, obs, 1*sizeof(obs_t), stream);
-        
-        
-        
+    copy_data_to_GPU(aero_beta_G, ('a' == beta_type) ? aero->beta_a :
+                     aero->beta_e, NLMAX * ND * sizeof(double), stream);
+
+
 		hydrostatic1d_GPU(ctl, ctl_G, atm_G, nr, ig_h2o, stream); // in this call atm_G gets modified
 		cuKernelCheck();
-		raytrace_rays_GPU <<< (nr/64)+1, 64, 0, stream>>> (ctl_G, atm_G, obs_G, los_G, tsurf_G, np_G);
+
+    if(arg_los == NULL) {
+      raytrace_rays_GPU <<< (nr/64)+1, 64, 0, stream>>> (ctl_G, atm_G, obs_G, los_G, tsurf_G, np_G);
+      cuKernelCheck();
+    } else {
+      pos_t (*los)[NLOS] = (pos_t (*)[NLOS])malloc(nr * (NLOS) * sizeof(pos_t));
+      int *np = (int*)malloc(nr * sizeof(int));
+      double *tsurf = (double*)malloc(nr * sizeof(double));
+
+      GPU_convert_los_t_to_pos_t(los, np, tsurf, arg_los, nr);
+      
+      copy_data_to_GPU(los_G, los, nr * NLOS * sizeof(pos_t), stream);
+      copy_data_to_GPU(np_G, np, nr * sizeof(int), stream);
+      copy_data_to_GPU(tsurf_G, tsurf, nr * sizeof(double), stream);
+    }
+	
+    multi_version_GPU(fourbit, tbl_G, ctl_G, obs_G, los_G, np_G, ig_co2, ig_h2o, aero_beta_G,
+                      nr, nd, ctl->gpu_nbytes_shared_memory, stream);
 		cuKernelCheck();
-		multi_version_GPU(fourbit, tbl_G, ctl_G, obs_G, los_G, np_G, ig_co2, ig_h2o, nr, nd, ctl->gpu_nbytes_shared_memory, stream);
-		cuKernelCheck();
-		surface_terms_GPU <<< nr, nd, 0, stream>>> (tbl_G, obs_G, tsurf_G, nd);
+		
+    surface_terms_GPU <<< nr, nd, 0, stream>>> (tbl_G, obs_G, tsurf_G, nd);
 		cuKernelCheck();
         
-        
-        if (ctl->write_bbt) { // convert radiance to brightness (in-place)
-            radiance_to_brightness_GPU <<< nr, nd, 0, stream >>> (ctl_G, obs_G);
-        } // write_bbt
+    if (ctl->write_bbt) { // convert radiance to brightness (in-place)
+        radiance_to_brightness_GPU <<< nr, nd, 0, stream >>> (ctl_G, obs_G);
+    } // write_bbt
 
 // 		get_data_from_GPU(atm, atm_G, 1*sizeof(atm_t), stream); // do we really need to get the atms back?
 		get_data_from_GPU(obs, obs_G, 1*sizeof(obs_t), stream); // always transfer NR rays
@@ -249,15 +308,18 @@
 
     // make sure that formod_GPU can be linked from CPUdrivers.c
 	extern "C" {
-      void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs);
-    }
+	   void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
+                     aero_t const *aero, los_t const *arg_los);
+   }
 
 	extern "C" {
       int omp_get_thread_num();
     }
     
 	__host__
-	void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs) {
+	
+	void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
+                  aero_t const *aero, los_t const *arg_los) {
     printf("DEBUG formod_GPU was called!\n");
     static ctl_t *ctl_G=NULL;
 		static trans_table_t *tbl_G=NULL;
@@ -308,6 +370,11 @@
                   gpu->tsurf_G	= malloc_GPU(double, NR);
                   gpu->np_G		= malloc_GPU(int, NR);
                   gpu->los_G		= (pos_t (*)[NLOS])__allocate_on_GPU(NR*NLOS*sizeof(pos_t), __FILE__, __LINE__); 
+                 
+                  //Added:
+                  gpu->aero_beta_G = (double(*)[ND])__allocate_on_GPU(NLMAX*ND*sizeof(double), __FILE__, __LINE__);
+
+
                   // for los_G[NLOS], the macro malloc_GPU does not work
                   cuCheck(cudaStreamCreate(&gpu->stream));
                   debug_printf("[INFO] cudaStreamCreate --> streamId %d\n", gpu->stream);
@@ -335,7 +402,7 @@
             int myLane = 0;
             // int const cpu_thread_id = omp_get_thread_num();
             copy_data_to_GPU(ctl_G, ctl, sizeof(ctl_t), gpuLanes[myLane].stream); // controls might change, update
-            formod_one_package(ctl, ctl_G, tbl_G, atm, obs, &gpuLanes[myLane]);
+            formod_one_package(ctl, ctl_G, tbl_G, atm, obs, aero, arg_los, &gpuLanes[myLane]);
         }
 		apply_mask(mask, obs, ctl);
 	} // formod_GPU

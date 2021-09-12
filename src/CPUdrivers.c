@@ -149,11 +149,6 @@
 	void formod_CPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
                   aero_t const *aero, los_t const *arg_los) {
     printf("DEBUG formod_CPU was called!\n");
-    
-    printf("DEBUG ");
-    for(int i = 0; i < 10; i++)
-      printf("%d ", arg_los[i].np);
-    printf("\n");
   
     if (ctl->checkmode) {
       printf("# %s: checkmode = %d, no actual computation is performed!\n", __func__, ctl->checkmode);
@@ -183,9 +178,6 @@
 				+   (1 == ctl->ctm_n2)                    *2   // N2
 				+   (1 == ctl->ctm_o2)                    *1); // O2
 
-
-    // "beta_a" -> 'a', "beta_e" -> 'e'
-    char const beta_type = ctl->sca_ext[5];
  
     hydrostatic1d_CPU(ctl, atm, obs->nr, ig_h2o); // in this call atm might get modified
     if(arg_los == NULL) {
@@ -197,10 +189,13 @@
       convert_los_t_to_pos_t(los, np, t_surf, arg_los, obs->nr);
     }
 
+    // "beta_a" -> 'a', "beta_e" -> 'e'
+    char const beta_type = ctl->sca_ext[5];
+
 #pragma omp parallel
 		{
 			apply_kernels_CPU(tbl, ctl, obs, los, np, ig_co2, ig_h2o, fourbit,
-                        ('a' == beta_type) ? aero->beta_a : aero->beta_e);
+                        (('a' == beta_type) ? aero->beta_a : aero->beta_e));
 			surface_terms_CPU(tbl, obs, t_surf, ctl->nd);
 		} // parallel
 
@@ -213,7 +208,8 @@
 		apply_mask(mask, obs, ctl);
 	} // formod_CPU
 
-    __host__ void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs)
+	__host__ void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
+                            aero_t const *aero, los_t const *arg_los)
 #ifdef hasGPU
     ; // declaration only, will be provided by GPUdrivers.o at link time 
 #else
@@ -250,9 +246,9 @@
                 nr_last_time = obs->nr;
             } // only report if nr changed
         } // checkmode
-        if (ctl->useGPU) {
-            formod_GPU(ctl, atm, obs);
-        } else { // USEGPU = 0 means use-GPU-never
-            formod_CPU(ctl, atm, obs, aero, los);
-        } // useGPU
+        //if (ctl->useGPU) {
+            formod_GPU(ctl, atm, obs, aero, los);
+        //} else { // USEGPU = 0 means use-GPU-never
+        //    formod_CPU(ctl, atm, obs, aero, los);
+        //} // useGPU
     } // formod
