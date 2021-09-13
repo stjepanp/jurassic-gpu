@@ -148,7 +148,7 @@
 	__host__
 	void formod_CPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
                   aero_t const *aero, los_t const *arg_los) {
-    printf("DEBUG formod_CPU was called!\n");
+    printf("formod_CPU was called!\n");
   
     if (ctl->checkmode) {
       printf("# %s: checkmode = %d, no actual computation is performed!\n", __func__, ctl->checkmode);
@@ -203,7 +203,7 @@
 		free(np);
 		free(t_surf);
 
-		if(ctl->write_bbt) radiance_to_brightness_CPU(ctl, obs);
+		if(ctl->write_bbt && ctl->queue.capacity > 0) radiance_to_brightness_CPU(ctl, obs);
 
 		apply_mask(mask, obs, ctl);
 	} // formod_CPU
@@ -246,9 +246,10 @@
                 nr_last_time = obs->nr;
             } // only report if nr changed
         } // checkmode
-        //if (ctl->useGPU) {
+        printf("useGPU: %d\n", ctl->useGPU); 
+        if (ctl->useGPU) {
             formod_GPU(ctl, atm, obs, aero, los);
-        //} else { // USEGPU = 0 means use-GPU-never
-        //    formod_CPU(ctl, atm, obs, aero, los);
-        //} // useGPU
+        } else { // USEGPU = 0 means use-GPU-never
+            formod_CPU(ctl, atm, obs, aero, los);
+        } // useGPU
     } // formod

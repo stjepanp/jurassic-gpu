@@ -361,7 +361,6 @@ typedef struct { /// Forward model control parameters. /////////////////////////
   int retrr;              /// Retrieval of particle size (0=no, 1=yes)
   int retss;              /// Retrieval of particle size distribution width (0=no, 1=yes)
   queue_t queue;          /// work queue architecture introduced for GPU acceleration
-  char jur_tblbase[LEN];       /// Added, because jurassic-gpu reads tables in ASCII and jurassic-scatter in binary format
 } ctl_t; ///////////////////////////////////////////////////////////////////////
 
 typedef struct {    /// Point on the Line-of-sight data without storing //////////

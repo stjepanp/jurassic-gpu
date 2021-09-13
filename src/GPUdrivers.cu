@@ -173,37 +173,43 @@
 
 	// ################ end of GPU driver routines ##############
 
+  void convert_los_to_pos_core(pos_t *pos, los_t const *los, int ip) {
+    pos->z   = los->z[ip];
+    pos->lon = los->lon[ip];
+    pos->lat = los->lat[ip];
+    pos->p   = los->p[ip];
+    pos->t   = los->t[ip];
+
+    for(int i = 0; i < NG; i++)
+      pos->q[i] = los->q[ip][i];
+
+    for(int i = 0; i < NW; i++)
+      pos->k[i] = los->k[ip][i];
+
+    if(-999 == los->aeroi[ip])
+      pos->aeroi = 0;
+    else
+      pos->aeroi = los->aeroi[ip]; // dodaj -999 => 0
+
+    pos->aerofac = los->aerofac[ip];
+
+    pos->ds = los->ds[ip];
+
+    for(int i = 0; i < NG; i++)
+      pos->u[i] = los->u[ip][i];
+  }
+
   void GPU_convert_los_t_to_pos_t(pos_t (*pos)[NLOS], int *np, double *tsurf, los_t const *los, int nr) {
+    #pragma omp for
     for(int ir = 0; ir < nr; ir++) {
       np[ir] = los[ir].np;
       tsurf[ir] = los[ir].tsurf;
-      for(int ip = 0; ip < np[ir]; ip++) {
-        //z, lon, lat, p, t, q[NG], k[NW], aeroi, aerofac, tsurf?, ds, u[NG]
-        pos[ir][ip].z   = los[ir].z[ip];
-        pos[ir][ip].lon = los[ir].lon[ip];
-        pos[ir][ip].lat = los[ir].lat[ip];
-        pos[ir][ip].p   = los[ir].p[ip];
-        pos[ir][ip].t   = los[ir].t[ip];
+    }
 
-        for(int i = 0; i < NG; i++)
-          pos[ir][ip].q[i] = los[ir].q[ip][i];
-
-        for(int i = 0; i < NW; i++)
-          pos[ir][ip].k[i] = los[ir].k[ip][i];
-
-        if(-999 == los[ir].aeroi[ip])
-          pos[ir][ip].aeroi = 0;
-        else
-          pos[ir][ip].aeroi = los[ir].aeroi[ip]; // dodaj -999 => 0
-
-
-        pos[ir][ip].aerofac = los[ir].aerofac[ip];
-
-        pos[ir][ip].ds = los[ir].ds[ip];
-
-        for(int i = 0; i < NG; i++)
-          pos[ir][ip].u[i] = los[ir].u[ip][i];
-
+    #pragma omp for
+    for(int ir = 0; ir < nr; ir++) {
+      for(int ip = 0; ip < np[ir]; ip++) { 
+        convert_los_to_pos_core(&pos[ir][ip], &los[ir], ip);
       }
     }
   }
@@ -293,7 +299,7 @@
     surface_terms_GPU <<< nr, nd, 0, stream>>> (tbl_G, obs_G, tsurf_G, nd);
 		cuKernelCheck();
         
-    if (ctl->write_bbt) { // convert radiance to brightness (in-place)
+    if (ctl->write_bbt && ctl->queue.capacity > 0) { // convert radiance to brightness (in-place)
         radiance_to_brightness_GPU <<< nr, nd, 0, stream >>> (ctl_G, obs_G);
     } // write_bbt
 
@@ -320,7 +326,6 @@
 	
 	void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
                   aero_t const *aero, los_t const *arg_los) {
-    printf("DEBUG formod_GPU was called!\n");
     static ctl_t *ctl_G=NULL;
 		static trans_table_t *tbl_G=NULL;
 
@@ -335,6 +340,7 @@
 #pragma omp critical
 		{
 			if (do_init) {
+        printf("DEBUG formod_GPU was called!\n");
 				size_t const sizePerLane = sizeof(obs_t) + NR * (sizeof(atm_t) + sizeof(pos_t[NLOS]) + sizeof(double) + sizeof(int));
               
               if (ctl->checkmode) {

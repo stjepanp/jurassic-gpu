@@ -310,8 +310,6 @@ void jur_hydrostatic_1d(ctl_t const *const ctl, atm_t *atm, int const ip0, int c
 //***************************************************************************
 
 void jur_init_tbl(ctl_t const *ctl, trans_table_t *tbl) {
-    strcpy(ctl->jur_tblbase, "/p/fastdata/slmet/slmet111/model_data/jurassic/tab/crista-nf/ascii_785_964/crista_nf"); //has to be changed, ofc
-    printf("DEBUG ctl->jur_tblbase = %s\n", ctl->jur_tblbase);
     if (ctl->read_binary) {
         int const binary_reading_status = jr_read_binary_tables(tbl, ctl);
         if (0 == binary_reading_status) {
@@ -334,10 +332,10 @@ void jur_init_tbl(ctl_t const *ctl, trans_table_t *tbl) {
           
 			char filename[LEN];
 #ifdef      DIRECTORY_WITH_GAS_NAME
-			sprintf(filename, "%s/%s_%s/boxcar_%.4f_%s.tab", ctl->jur_tblbase, 
-                    ctl->jur_tblbase, ctl->emitter[ig], ctl->nu[id], ctl->emitter[ig]);
+			sprintf(filename, "%s/%s_%s/boxcar_%.4f_%s.tab", ctl->tblbase, 
+                    ctl->tblbase, ctl->emitter[ig], ctl->nu[id], ctl->emitter[ig]);
 #else            
-			sprintf(filename, "%s_%.4f_%s.tab", ctl->jur_tblbase, ctl->nu[id], ctl->emitter[ig]);
+			sprintf(filename, "%s_%.4f_%s.tab", ctl->tblbase, ctl->nu[id], ctl->emitter[ig]);
 #endif
 			// Try to open file
 			FILE *in;
@@ -404,10 +402,10 @@ void jur_init_tbl(ctl_t const *ctl, trans_table_t *tbl) {
       } else { // checkmode
 			char filenames[LEN];
 #ifdef      DIRECTORY_WITH_GAS_NAME
-			sprintf(filenames, "%s/%s_%s/boxcar_%s_%s.tab", ctl->jur_tblbase, 
-                    ctl->jur_tblbase, ctl->emitter[ig], "<nu.4>", ctl->emitter[ig]);
+			sprintf(filenames, "%s/%s_%s/boxcar_%s_%s.tab", ctl->tblbase, 
+                    ctl->tblbase, ctl->emitter[ig], "<nu.4>", ctl->emitter[ig]);
 #else            
-			sprintf(filenames, "%s_%s_%s.tab", ctl->jur_tblbase, "<nu.4>", ctl->emitter[ig]);
+			sprintf(filenames, "%s_%s_%s.tab", ctl->tblbase, "<nu.4>", ctl->emitter[ig]);
 #endif
             printf("# try to initialize tables for gas %d %s from filenames %s\n", 
                    ig, ctl->emitter[ig], filenames);
@@ -649,9 +647,9 @@ void jur_init_tbl(ctl_t const *ctl, trans_table_t *tbl) {
 	for(int id = 0; id < ctl->nd; id++) {
 		char filename[LEN];
 #ifdef  DIRECTORY_WITH_GAS_NAME
-        sprintf(filename, "%s/%s_%s/boxcar_%.4f.filt", ctl->jur_tblbase, ctl->jur_tblbase, "CO2", ctl->nu[id]);
+        sprintf(filename, "%s/%s_%s/boxcar_%.4f.filt", ctl->tblbase, ctl->tblbase, "CO2", ctl->nu[id]);
 #else        
-	sprintf(filename, "%s_%.4f.filt", ctl->jur_tblbase, ctl->nu[id]);				// Read filter function
+	sprintf(filename, "%s_%.4f.filt", ctl->tblbase, ctl->nu[id]);				// Read filter function
 #endif
 		double f[NSHAPE], nu[NSHAPE];																 // Arguments for read_shape
 		int const n = jur_read_shape(filename, nu, f, ctl->checkmode);
@@ -946,7 +944,7 @@ void jur_read_ctl(int argc, char *argv[], ctl_t *ctl) {
         ctl->window[id] = (int) jur_scan_ctl(argc, argv, "WINDOW", id, "0", NULL);
     } // id
 	// Emissivity look-up tables
-	jur_scan_ctl(argc, argv, "TBLBASE", -1, "-", ctl->jur_tblbase);
+	jur_scan_ctl(argc, argv, "TBLBASE", -1, "-", ctl->tblbase);
 	// Hydrostatic equilibrium
 	ctl->hydz = jur_scan_ctl(argc, argv, "HYDZ", -1, "-999", NULL);
 	// Continua
