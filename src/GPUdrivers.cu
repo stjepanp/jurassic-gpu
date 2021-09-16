@@ -1,5 +1,6 @@
 #include <cuda.h>
 #include "jr_common.h" // ...
+#include <omp.h>
 
 #ifdef GPUDEBUG
     #define debug_printf(...) printf(__VA_ARGS__)
@@ -171,48 +172,30 @@
 		hydrostatic_kernel_GPU<<<nr/32 + 1, 32, 0, stream>>> (ctl_G, atm_G, nr, ig_h2o);
 	} // hydrostatic1d_GPU
 
-	// ################ end of GPU driver routines ##############
+  /*void __global__
+  convert_los_t_to_pos_t_GPU(pos_t (*pos)[NLOS], int *np, double *tsurf, los_t const *los, int nr) {
+    for(int ir = blockIdx.x; ir < nr; ir += gridDim.x) { // grid stride loop over blocks = rays
+      np[ir] = los[ir].np;
+      tsurf[ir] = los[ir].tsurf;
+      for(int ip = threadIdx.x; ip < los[ir].np; ip += blockDim.x) { // grid stride loop over threads = detectors 
+        convert_los_to_pos_core(&pos[ir][ip], &los[ir], ip);
+      } // ip
+    } // ir
+  }*/
 
-  void convert_los_to_pos_core(pos_t *pos, los_t const *los, int ip) {
-    pos->z   = los->z[ip];
-    pos->lon = los->lon[ip];
-    pos->lat = los->lat[ip];
-    pos->p   = los->p[ip];
-    pos->t   = los->t[ip];
-
-    for(int i = 0; i < NG; i++)
-      pos->q[i] = los->q[ip][i];
-
-    for(int i = 0; i < NW; i++)
-      pos->k[i] = los->k[ip][i];
-
-    if(-999 == los->aeroi[ip])
-      pos->aeroi = 0;
-    else
-      pos->aeroi = los->aeroi[ip]; // dodaj -999 => 0
-
-    pos->aerofac = los->aerofac[ip];
-
-    pos->ds = los->ds[ip];
-
-    for(int i = 0; i < NG; i++)
-      pos->u[i] = los->u[ip][i];
-  }
-
-  void GPU_convert_los_t_to_pos_t(pos_t (*pos)[NLOS], int *np, double *tsurf, los_t const *los, int nr) {
-    #pragma omp for
+  void convert_los_t_to_pos_t_GPU(pos_t (*pos)[NLOS], int *np, double *tsurf, los_t const *los, int nr) {
+    #pragma omp parallel for
     for(int ir = 0; ir < nr; ir++) {
       np[ir] = los[ir].np;
       tsurf[ir] = los[ir].tsurf;
-    }
-
-    #pragma omp for
-    for(int ir = 0; ir < nr; ir++) {
-      for(int ip = 0; ip < np[ir]; ip++) { 
+      for(int ip = 0; ip < los[ir].np; ip++) { 
         convert_los_to_pos_core(&pos[ir][ip], &los[ir], ip);
       }
     }
+    printf("\n");
   }
+
+	// ################ end of GPU driver routines ##############
 
 	// GPU control struct containing GPU version of input, intermediate and output arrays
 	typedef struct {
@@ -284,9 +267,10 @@
       pos_t (*los)[NLOS] = (pos_t (*)[NLOS])malloc(nr * (NLOS) * sizeof(pos_t));
       int *np = (int*)malloc(nr * sizeof(int));
       double *tsurf = (double*)malloc(nr * sizeof(double));
-
-      GPU_convert_los_t_to_pos_t(los, np, tsurf, arg_los, nr);
-      
+      //this converting is at the moment actually host function
+      //maybe we should write it as GPU kernel function
+      //but I think it is not necessary because it takes GPU memory
+      convert_los_t_to_pos_t_GPU(los, np, tsurf, arg_los, nr);
       copy_data_to_GPU(los_G, los, nr * NLOS * sizeof(pos_t), stream);
       copy_data_to_GPU(np_G, np, nr * sizeof(int), stream);
       copy_data_to_GPU(tsurf_G, tsurf, nr * sizeof(double), stream);
@@ -317,13 +301,8 @@
 	   void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
                      aero_t const *aero, los_t const *arg_los);
    }
-
-	extern "C" {
-      int omp_get_thread_num();
-    }
-    
+  
 	__host__
-	
 	void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
                   aero_t const *aero, los_t const *arg_los) {
     static ctl_t *ctl_G=NULL;
@@ -341,8 +320,8 @@
 		{
 			if (do_init) {
         printf("DEBUG formod_GPU was called!\n");
-				size_t const sizePerLane = sizeof(obs_t) + NR * (sizeof(atm_t) + sizeof(pos_t[NLOS]) + sizeof(double) + sizeof(int));
-              
+				const size_t sizePerLane = sizeof(obs_t) + NR * (sizeof(atm_t) + sizeof(pos_t[NLOS]) + sizeof(double) + sizeof(int));
+        
               if (ctl->checkmode) {
                 printf("# %s: GPU memory requirement per lane is %.3f MByte\n", __func__, 1e-6*sizePerLane);
               } else {
@@ -361,6 +340,7 @@
                     1e-6*gpuMemFree, 1e-6*gpuMemTotal, gpuMemFree/(.01*gpuMemTotal));
 
                 numLanes = (size_t)((0.9*gpuMemFree) / (double)sizePerLane); // Only use 90% of free GPU memory ...
+                printf("DEBUG max possible number of Lanes: %d\n", numLanes);
                 // ... other space is needed for alignment and profiling buffers
                 size_t const maxNumLanes = 4; // Do not really need more than a handfull of lanes
                 if (numLanes > maxNumLanes) numLanes = maxNumLanes;
@@ -379,7 +359,6 @@
                  
                   //Added:
                   gpu->aero_beta_G = (double(*)[ND])__allocate_on_GPU(NLMAX*ND*sizeof(double), __FILE__, __LINE__);
-
 
                   // for los_G[NLOS], the macro malloc_GPU does not work
                   cuCheck(cudaStreamCreate(&gpu->stream));
@@ -403,7 +382,10 @@
 		
     char mask[NR][ND];
 		save_mask(mask, obs, ctl);
-#pragma omp parallel
+//I should add this because of CPUs converting los to pos..
+//omp_set_nested(true)
+
+//#pragma omp parallel
         {
             int myLane = 0;
             // int const cpu_thread_id = omp_get_thread_num();

@@ -4,7 +4,7 @@
 
     __host__
 	void radiance_to_brightness_CPU(ctl_t const *ctl, obs_t *obs) {
-#pragma omp for
+#pragma omp parallel for
 		for(int ir = 0; ir < obs->nr; ir++) { // loop over rays
 			for(int id = 0; id < ctl->nd; id++) { // loop over detectors
 				// convert in-place
@@ -15,7 +15,7 @@
 
 	__host__
 	void surface_terms_CPU(trans_table_t const *tbl, obs_t *obs, double const tsurf[], int const nd) {
-#pragma omp for
+#pragma omp  parallel for
 		for(int ir = 0; ir < obs->nr; ir++) { // loop over rays
 			for(int id = 0; id < nd; id++) { // loop over detectors
 				add_surface_core(obs, tbl, tsurf[ir], ir, id);
@@ -53,7 +53,7 @@
         int const ig_co2, int const ig_h2o, char const fourbit,
         double const (*restrict aero_beta)[ND]) { // aero_beta is added
 
-#pragma omp for
+#pragma omp parallel for
 		for(int ir = 0; ir < obs->nr; ir++) { // loop over independent rays
 			double tau_path[ND][NG]; // private for each ray
 			for(int id = 0; id < ND; id++) { // loop over detectors
@@ -93,7 +93,7 @@
 	__host__
 	void raytrace_rays_CPU(ctl_t const *ctl, atm_t const *atm, obs_t *obs, 
                            pos_t los[NR][NLOS], double tsurf[], int np[]) {
-#pragma omp for
+#pragma omp parallel for
 		for(int ir = 0; ir < obs->nr; ir++) { // loop over rays
 			np[ir] = traceray(ctl, atm, obs, ir, los[ir], &tsurf[ir]);
 		} // ir
@@ -107,48 +107,25 @@
 			} // ir
 	} // hydrostatic1d_CPU
 
-	// ################ end of CPU driver routines ##############
-
-  void convert_los_t_to_pos_t(pos_t (*pos)[NLOS], int *np, double *tsurf, los_t const *los, int nr) {
+  void convert_los_t_to_pos_t_CPU(pos_t (*pos)[NLOS], int *np, double *tsurf, los_t const *los, int nr) {
+    #pragma omp  parallel for
     for(int ir = 0; ir < nr; ir++) {
       np[ir] = los[ir].np;
       tsurf[ir] = los[ir].tsurf;
-      for(int ip = 0; ip < np[ir]; ip++) {
-        //z, lon, lat, p, t, q[NG], k[NW], aeroi, aerofac, tsurf?, ds, u[NG]
-        pos[ir][ip].z   = los[ir].z[ip];
-        pos[ir][ip].lon = los[ir].lon[ip];
-        pos[ir][ip].lat = los[ir].lat[ip];
-        pos[ir][ip].p   = los[ir].p[ip];
-        pos[ir][ip].t   = los[ir].t[ip];
-
-        for(int i = 0; i < NG; i++)
-          pos[ir][ip].q[i] = los[ir].q[ip][i];
-
-        for(int i = 0; i < NW; i++)
-          pos[ir][ip].k[i] = los[ir].k[ip][i];
-
-        if(-999 == los[ir].aeroi[ip])
-          pos[ir][ip].aeroi = 0;
-        else
-          pos[ir][ip].aeroi = los[ir].aeroi[ip]; // dodaj -999 => 0
-
-
-        pos[ir][ip].aerofac = los[ir].aerofac[ip];
-
-        pos[ir][ip].ds = los[ir].ds[ip];
-
-        for(int i = 0; i < NG; i++)
-          pos[ir][ip].u[i] = los[ir].u[ip][i];
-
+      for(int ip = 0; ip < los[ir].np; ip++) { 
+        convert_los_to_pos_core(&pos[ir][ip], &los[ir], ip);
       }
     }
+    printf("\n");
   }
+
+	// ################ end of CPU driver routines ##############
 
 	// The full forward model on the CPU ////////////////////////////////////////////
 	__host__
 	void formod_CPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
                   aero_t const *aero, los_t const *arg_los) {
-    printf("formod_CPU was called!\n");
+    printf("DEBUG formod_CPU was called!\n");
   
     if (ctl->checkmode) {
       printf("# %s: checkmode = %d, no actual computation is performed!\n", __func__, ctl->checkmode);
@@ -186,18 +163,15 @@
       raytrace_rays_CPU(ctl, atm, obs, los, t_surf, np);
     } else {
 
-      convert_los_t_to_pos_t(los, np, t_surf, arg_los, obs->nr);
+      convert_los_t_to_pos_t_CPU(los, np, t_surf, arg_los, obs->nr);
     }
 
     // "beta_a" -> 'a', "beta_e" -> 'e'
     char const beta_type = ctl->sca_ext[5];
 
-#pragma omp parallel
-		{
-			apply_kernels_CPU(tbl, ctl, obs, los, np, ig_co2, ig_h2o, fourbit,
-                        (('a' == beta_type) ? aero->beta_a : aero->beta_e));
-			surface_terms_CPU(tbl, obs, t_surf, ctl->nd);
-		} // parallel
+    apply_kernels_CPU(tbl, ctl, obs, los, np, ig_co2, ig_h2o, fourbit,
+                      (('a' == beta_type) ? aero->beta_a : aero->beta_e));
+    surface_terms_CPU(tbl, obs, t_surf, ctl->nd);
 
 		free(los);
 		free(np);
@@ -229,7 +203,7 @@
                 printf("CUDA not found during compilation, continue on CPUs instead!\n");
                 warnGPU = 0; // switch this warning off
             } // warnGPU
-            formod_CPU(ctl, atm, obs);
+            formod_CPU(ctl, atm, obs, aero, arg_los);
         } //
     } // formod_GPU
 #endif

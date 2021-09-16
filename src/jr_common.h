@@ -762,3 +762,28 @@
             atm->p[ip] = atm->p[ip + 1]*exp(-1000*mean*(atm->z[ip] - atm->z[ip + 1])); // Compute p(z,T)
         } // ip
     } // hydrostatic_1d
+
+
+  __host__ __device__ __ext_inline__
+  void convert_los_to_pos_core(pos_t *pos, los_t const *los, int ip) {
+    pos->z   = los->z[ip];
+    pos->lon = los->lon[ip];
+    pos->lat = los->lat[ip];
+    pos->p   = los->p[ip];
+    pos->t   = los->t[ip];
+
+    for(int i = 0; i < NG; i++)
+      pos->q[i] = los->q[ip][i];
+
+    for(int i = 0; i < NW; i++)
+      pos->k[i] = los->k[ip][i];
+
+    pos->aeroi = (-999 == los->aeroi[ip] ? 0 : los->aeroi[ip]);
+
+    pos->aerofac = los->aerofac[ip];
+
+    pos->ds = los->ds[ip];
+
+    for(int i = 0; i < NG; i++)
+      pos->u[i] = los->u[ip][i];
+  }

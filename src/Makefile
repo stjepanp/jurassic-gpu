@@ -71,11 +71,12 @@ CUFLAGS =
 CUFLAGS += --std=c++11
 CUFLAGS += --use_fast_math $(CUOPTFLAGS) $(patsubst %,-Xcompiler %,$(FLAGS)) 
 CUFLAGS += -Xptxas -v  
+CUFLAGS += -Xcompiler -fopenmp 
 # CUFLAGS += -DRETURN_AFTER_INIT
 # CUFLAGS += -DGPUDEBUG  
 
 # Linker flags...
-LDFLAGS = $(LIBDIR) -lgsl -lgslcblas -lm -lstdc++
+LDFLAGS = $(LIBDIR) -lgsl -lgslcblas -lm -lstdc++ -lgomp
 
 # Objects...
 OBJECTS = jurassic.o CPUdrivers.o interface.o
