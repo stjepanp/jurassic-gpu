@@ -1020,6 +1020,10 @@ void jur_read_ctl(int argc, char *argv[], ctl_t *ctl) {
     ctl->write_binary = (int) jur_scan_ctl(argc, argv, "WRITE_BINARY", -1, "1", NULL);
 
     ctl->gpu_nbytes_shared_memory = (int) jur_scan_ctl(argc, argv, "GPU_SHARED_MEMORY", -1, "0", NULL);
+  
+    //Added:
+    /* Number of leaf rays ... */
+    ctl->leaf_nr=(int)scan_ctl(argc, argv, "LEAF_NR", -1, "-1", NULL);
 }
 
 //***************************************************************************

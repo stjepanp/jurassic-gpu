@@ -291,7 +291,6 @@ typedef struct {
     int capacity;
     int begin;
     int end;
-    int state;
 } queue_t;
 
 typedef struct { /// Atmospheric data. /////////////////////////////////////////
@@ -360,7 +359,8 @@ typedef struct { /// Forward model control parameters. /////////////////////////
   int retnn;              /// Retrieval of particle concentration (0=no, 1=yes)
   int retrr;              /// Retrieval of particle size (0=no, 1=yes)
   int retss;              /// Retrieval of particle size distribution width (0=no, 1=yes)
-  queue_t queue;          /// work queue architecture introduced for GPU acceleration
+  int leaf_nr;            /// Number of leaf rays, for example number of secondary rays if sca_mult=1
+  int queue_state;        /// We have multiple queues, but all of them are in same state
 } ctl_t; ///////////////////////////////////////////////////////////////////////
 
 typedef struct {    /// Point on the Line-of-sight data without storing //////////

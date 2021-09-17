@@ -283,7 +283,7 @@
     surface_terms_GPU <<< nr, nd, 0, stream>>> (tbl_G, obs_G, tsurf_G, nd);
 		cuKernelCheck();
         
-    if (ctl->write_bbt && ctl->queue.capacity > 0) { // convert radiance to brightness (in-place)
+    if (ctl->write_bbt && ctl->leaf_nr == -1) { // convert radiance to brightness (in-place)
         radiance_to_brightness_GPU <<< nr, nd, 0, stream >>> (ctl_G, obs_G);
     } // write_bbt
 

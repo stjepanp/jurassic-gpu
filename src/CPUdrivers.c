@@ -177,7 +177,8 @@
 		free(np);
 		free(t_surf);
 
-		if(ctl->write_bbt && ctl->queue.capacity > 0) radiance_to_brightness_CPU(ctl, obs);
+    if(ctl->write_bbt && ctl->leaf_nr == -1)  // convert radiance to brightness (in-place)
+		  radiance_to_brightness_CPU(ctl, obs);
 
 		apply_mask(mask, obs, ctl);
 	} // formod_CPU
