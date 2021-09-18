@@ -274,6 +274,12 @@
       copy_data_to_GPU(los_G, los, nr * NLOS * sizeof(pos_t), stream);
       copy_data_to_GPU(np_G, np, nr * sizeof(int), stream);
       copy_data_to_GPU(tsurf_G, tsurf, nr * sizeof(double), stream);
+
+      //maybe I could use cudaEventSynchronize?
+      cuKernelCheck();
+      free(los);
+      free(np);
+      free(tsurf);
     }
 	
     multi_version_GPU(fourbit, tbl_G, ctl_G, obs_G, los_G, np_G, ig_co2, ig_h2o, aero_beta_G,
@@ -299,12 +305,12 @@
     // make sure that formod_GPU can be linked from CPUdrivers.c
 	extern "C" {
 	   void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
-                     aero_t const *aero, los_t const *arg_los);
+                     aero_t const *aero, los_t const **arg_los, int n);
    }
   
 	__host__
 	void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
-                  aero_t const *aero, los_t const *arg_los) {
+                  aero_t const *aero, los_t const **arg_los, int n) {
     static ctl_t *ctl_G=NULL;
 		static trans_table_t *tbl_G=NULL;
 
@@ -331,7 +337,12 @@
                 ctl_G = malloc_GPU(ctl_t, 1);
                 copy_data_to_GPU(ctl_G, ctl, sizeof(ctl_t), 0);
 
+                double tic = omp_get_wtime(); 
+                
                 tbl_G = get_tbl_on_GPU(ctl);
+                
+                double toc = omp_get_wtime();
+                printf("TIMER jurassic-gpu reading table time: %lf\n", toc - tic);
 
                 // Get number of possible lanes
                 size_t gpuMemFree, gpuMemTotal;
@@ -379,18 +390,21 @@
 		if (ctl->checkmode) { printf("# %s: no operation in checkmode\n", __func__); return; }
 		
     printf("numDevices: %d\n", numDevices);
-		
-    char mask[NR][ND];
-		save_mask(mask, obs, ctl);
-//I should add this because of CPUs converting los to pos..
-//omp_set_nested(true)
-
-//#pragma omp parallel
-        {
-            int myLane = 0;
-            // int const cpu_thread_id = omp_get_thread_num();
-            copy_data_to_GPU(ctl_G, ctl, sizeof(ctl_t), gpuLanes[myLane].stream); // controls might change, update
-            formod_one_package(ctl, ctl_G, tbl_G, atm, obs, aero, arg_los, &gpuLanes[myLane]);
-        }
-		apply_mask(mask, obs, ctl);
+    
+    //I should added this because of CPUs converting los to pos..    
+    omp_set_nested(true);
+#pragma omp parallel num_threads(numLanes)
+#pragma omp for schedule(dynamic, 1) //work slealing
+    for(int i = 0; i < n; i++) //loop over packages
+    {
+      int const myLane = omp_get_thread_num();
+      printf("DEBUG i: %d, myLane: %d/%d\n", i, myLane, omp_get_num_threads());
+      assert(myLane < numLanes);
+      char mask[NR][ND];
+      save_mask(mask, &obs[i], ctl);
+      copy_data_to_GPU(ctl_G, ctl, sizeof(ctl_t), gpuLanes[myLane].stream); // controls might change, update
+      formod_one_package(ctl, ctl_G, tbl_G, atm, &obs[i], aero, arg_los != NULL ? arg_los[i] : NULL, &gpuLanes[myLane]);
+		  apply_mask(mask, &obs[i], ctl);
+    }
+    omp_set_nested(false);
 	} // formod_GPU

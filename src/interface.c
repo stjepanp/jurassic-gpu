@@ -6,11 +6,8 @@
 
 //void jur_formod(ctl_t const *ctl, atm_t *atm, obs_t *obs);
 
-void formod_multiple_packages(ctl_t *ctl, atm_t *atm,  aero_t *aero, int n, obs_t *packages, los_t **los_packages) { 
+void formod_multiple_packages(ctl_t *ctl, atm_t *atm,  aero_t *aero, int n, obs_t *obs_packages, los_t **los_packages) { 
   printf("DEBUG number of packages.. %d\n", n);
   printf("DEBUG call jur_formod..\n");
-  for(int i = 0; i < n; i++) {
-    //aero and los are optionl
-    jur_formod(ctl, atm, &packages[i], aero, los_packages != NULL ? los_packages[i] : NULL);
-  }
+	jur_formod(ctl, atm, obs_packages, aero, los_packages, n);
 }

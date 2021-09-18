@@ -812,7 +812,7 @@ void jur_intpol_atm_3d(ctl_t const *const ctl, atm_t *atm,
 //***************************************************************************
 void jur_kernel(ctl_t const *const ctl, atm_t *atm, obs_t *obs, gsl_matrix *k) {
 	int iqa[N];
-	jur_formod(ctl, atm, obs, NULL, NULL);													 // Compute radiance for undisturbed atmospheric data
+	jur_formod(ctl, atm, obs, NULL, NULL, 1);													 // Compute radiance for undisturbed atmospheric data
 	// Compose vectors
 	size_t m = k->size1, n = k->size2;
 	//printf("k->size2=%ld\n", (long int) n);
@@ -842,7 +842,7 @@ void jur_kernel(ctl_t const *const ctl, atm_t *atm, obs_t *obs, gsl_matrix *k) {
 			jur_copy_atm(ctl, atm1, atm, 0);
 			jur_copy_obs(ctl, obs1, obs, 0);
 			jur_x2atm(ctl, x1, atm1);
-			jur_formod(ctl, atm1, obs1, NULL, NULL);											// Compute radiance for disturbed atmospheric data
+			jur_formod(ctl, atm1, obs1, NULL, NULL, 1);											// Compute radiance for disturbed atmospheric data
 			jur_obs2y(ctl, obs1, yy1, NULL, NULL);						// Compose measurement vector for disturbed radiance data
 			for(size_t i = 0; i < m; i++) {								// Compute derivatives
 				gsl_matrix_set(k, i, (size_t)j, (gsl_vector_get(yy1, i) - gsl_vector_get(yy0, i))/h);

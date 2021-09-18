@@ -184,7 +184,7 @@
 	} // formod_CPU
 
 	__host__ void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
-                            aero_t const *aero, los_t const *arg_los)
+                            aero_t const *aero, los_t const **arg_los, int n)
 #ifdef hasGPU
     ; // declaration only, will be provided by GPUdrivers.o at link time 
 #else
@@ -204,14 +204,17 @@
                 printf("CUDA not found during compilation, continue on CPUs instead!\n");
                 warnGPU = 0; // switch this warning off
             } // warnGPU
-            formod_CPU(ctl, atm, obs, aero, arg_los);
+            for(int i = 0; i < n; i++) {
+              //aero and los are optionl
+              formod_CPU(ctl, atm, &obs[i], aero, arg_los != NULL ? arg_los[i] : NULL);
+            }
         } //
     } // formod_GPU
 #endif
 
 	__host__
 
-	void jur_formod(ctl_t const *ctl, atm_t *atm, obs_t *obs, aero_t const *aero, los_t *los) {
+	void jur_formod(ctl_t const *ctl, atm_t *atm, obs_t *obs, aero_t const *aero, los_t **los, int n) {
         if (ctl->checkmode) {
             static int nr_last_time = -999;
             if (obs->nr != nr_last_time) {
@@ -223,8 +226,11 @@
         } // checkmode
         printf("useGPU: %d\n", ctl->useGPU); 
         if (ctl->useGPU) {
-            formod_GPU(ctl, atm, obs, aero, los);
+            formod_GPU(ctl, atm, obs, aero, los, n);
         } else { // USEGPU = 0 means use-GPU-never
-            formod_CPU(ctl, atm, obs, aero, los);
+            for(int i = 0; i < n; i++) {
+              //aero and los are optionl
+              formod_CPU(ctl, atm, &obs[i], aero, los != NULL ? los[i] : NULL);
+            }
         } // useGPU
     } // formod
