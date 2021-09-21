@@ -183,13 +183,13 @@
     } // ir
   }*/
 
-  void convert_los_t_to_pos_t_GPU(pos_t (*pos)[NLOS], int *np, double *tsurf, los_t const *los, int nr) {
+  void convert_los_t_to_pos_t_GPU(pos_t (*pos)[NLOS], int *np, double *tsurf, los_t const **los, int nr) {
     #pragma omp parallel for
     for(int ir = 0; ir < nr; ir++) {
-      np[ir] = los[ir].np;
-      tsurf[ir] = los[ir].tsurf;
-      for(int ip = 0; ip < los[ir].np; ip++) { 
-        convert_los_to_pos_core(&pos[ir][ip], &los[ir], ip);
+      np[ir] = los[ir]->np;
+      tsurf[ir] = los[ir]->tsurf;
+      for(int ip = 0; ip < los[ir]->np; ip++) { 
+        convert_los_to_pos_core(&pos[ir][ip], los[ir], ip);
       }
     }
     printf("\n");
@@ -215,7 +215,7 @@
 			atm_t const *atm, // can be made const if we do not get the atms back
 			obs_t *obs,
       aero_t const *aero,
-      los_t const *arg_los,
+      los_t const **arg_los,
 			gpuLane_t const *gpu)
     // a workload manager for the GPU
     {
@@ -305,12 +305,12 @@
     // make sure that formod_GPU can be linked from CPUdrivers.c
 	extern "C" {
 	   void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
-                     aero_t const *aero, los_t const **arg_los, int n);
+                     aero_t const *aero, los_t const ***arg_los, int n);
    }
   
 	__host__
 	void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
-                  aero_t const *aero, los_t const **arg_los, int n) {
+                  aero_t const *aero, los_t const ***arg_los, int n) {
     static ctl_t *ctl_G=NULL;
 		static trans_table_t *tbl_G=NULL;
 
@@ -325,7 +325,7 @@
 #pragma omp critical
 		{
 			if (do_init) {
-        printf("DEBUG formod_GPU was called!\n");
+        printf("DEBUG #%d formod_GPU was called!\n", ctl->MPIglobrank);
 				const size_t sizePerLane = sizeof(obs_t) + NR * (sizeof(atm_t) + sizeof(pos_t[NLOS]) + sizeof(double) + sizeof(int));
         
               if (ctl->checkmode) {
@@ -342,7 +342,8 @@
                 tbl_G = get_tbl_on_GPU(ctl);
                 
                 double toc = omp_get_wtime();
-                printf("TIMER jurassic-gpu reading table time: %lf\n", toc - tic);
+                printf("TIMER #%d jurassic-gpu reading table time: %lf\n",
+                ctl->MPIglobrank, toc - tic);
 
                 // Get number of possible lanes
                 size_t gpuMemFree, gpuMemTotal;
@@ -351,7 +352,8 @@
                     1e-6*gpuMemFree, 1e-6*gpuMemTotal, gpuMemFree/(.01*gpuMemTotal));
 
                 numLanes = (size_t)((0.9*gpuMemFree) / (double)sizePerLane); // Only use 90% of free GPU memory ...
-                printf("DEBUG max possible number of Lanes: %d\n", numLanes);
+                printf("DEBUG #%d max possible number of Lanes: %d\n",
+                ctl->MPIglobrank, numLanes);
                 // ... other space is needed for alignment and profiling buffers
                 size_t const maxNumLanes = 4; // Do not really need more than a handfull of lanes
                 if (numLanes > maxNumLanes) numLanes = maxNumLanes;
@@ -394,11 +396,11 @@
     //I should added this because of CPUs converting los to pos..    
     omp_set_nested(true);
 #pragma omp parallel num_threads(numLanes)
-#pragma omp for schedule(dynamic, 1) //work slealing
+#pragma omp for schedule(dynamic, 1) //work stealing
     for(int i = 0; i < n; i++) //loop over packages
     {
       int const myLane = omp_get_thread_num();
-      printf("DEBUG i: %d, myLane: %d/%d\n", i, myLane, omp_get_num_threads());
+      printf("DEBUG #%d i: %d, myLane: %d/%d\n", ctl->MPIglobrank, i, myLane, omp_get_num_threads());
       assert(myLane < numLanes);
       char mask[NR][ND];
       save_mask(mask, &obs[i], ctl);

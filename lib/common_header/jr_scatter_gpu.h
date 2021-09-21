@@ -225,7 +225,7 @@
 #define TBLNT TBLNTMAX
 
 /* Maximum number of column densities in emissivity tables. */
-#define TBLNUMAX 400 //TODO: TBLNU 304
+#define TBLNUMAX 430 //TODO: TBLNU 304
 #define TBLNU TBLNUMAX
 
 /* Maximum number of scattering models. */

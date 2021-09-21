@@ -107,13 +107,13 @@
 			} // ir
 	} // hydrostatic1d_CPU
 
-  void convert_los_t_to_pos_t_CPU(pos_t (*pos)[NLOS], int *np, double *tsurf, los_t const *los, int nr) {
+  void convert_los_t_to_pos_t_CPU(pos_t (*pos)[NLOS], int *np, double *tsurf, los_t const **los, int nr) {
     #pragma omp  parallel for
     for(int ir = 0; ir < nr; ir++) {
-      np[ir] = los[ir].np;
-      tsurf[ir] = los[ir].tsurf;
-      for(int ip = 0; ip < los[ir].np; ip++) { 
-        convert_los_to_pos_core(&pos[ir][ip], &los[ir], ip);
+      np[ir] = los[ir]->np;
+      tsurf[ir] = los[ir]->tsurf;
+      for(int ip = 0; ip < los[ir]->np; ip++) { 
+        convert_los_to_pos_core(&pos[ir][ip], los[ir], ip);
       }
     }
     printf("\n");
@@ -124,8 +124,8 @@
 	// The full forward model on the CPU ////////////////////////////////////////////
 	__host__
 	void formod_CPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
-                  aero_t const *aero, los_t const *arg_los) {
-    printf("DEBUG formod_CPU was called!\n");
+                  aero_t const *aero, los_t const **arg_los) {
+    printf("DEBUG #%d formod_CPU was called!\n", ctl->MPIglobrank);
   
     if (ctl->checkmode) {
       printf("# %s: checkmode = %d, no actual computation is performed!\n", __func__, ctl->checkmode);
@@ -184,7 +184,7 @@
 	} // formod_CPU
 
 	__host__ void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
-                            aero_t const *aero, los_t const **arg_los, int n)
+                            aero_t const *aero, los_t const ***arg_los, int n)
 #ifdef hasGPU
     ; // declaration only, will be provided by GPUdrivers.o at link time 
 #else
@@ -214,7 +214,7 @@
 
 	__host__
 
-	void jur_formod(ctl_t const *ctl, atm_t *atm, obs_t *obs, aero_t const *aero, los_t **los, int n) {
+	void jur_formod(ctl_t const *ctl, atm_t *atm, obs_t *obs, aero_t const *aero, los_t ***los, int n) {
         if (ctl->checkmode) {
             static int nr_last_time = -999;
             if (obs->nr != nr_last_time) {

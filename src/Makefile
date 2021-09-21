@@ -50,7 +50,7 @@ CFEAFLAGS += -D SHOW_GIT_KEY=$(GITKEY)
 COPTFLAGS=
 COPTFLAGS += -O3
 # COPTFLAGS += -Ofast
- COPTFLAGS += -g
+COPTFLAGS += -g
 # COPTFLAGS += -pg
 # COPTFLAGS += -mtune=power8
 # COPTFLAGS += -mcpu=power8
@@ -69,6 +69,7 @@ CUOPTFLAGS += -gencode arch=compute_70,code=sm_70 $(INCDIR) ## sm_70 for V100
 # CUDA Compiler flags...
 CUFLAGS =
 CUFLAGS += --std=c++11
+# CUFLAGS += -g -G
 CUFLAGS += --use_fast_math $(CUOPTFLAGS) $(patsubst %,-Xcompiler %,$(FLAGS)) 
 CUFLAGS += -Xptxas -v  
 CUFLAGS += -Xcompiler -fopenmp 
