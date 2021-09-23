@@ -1,4 +1,5 @@
 #include "jr_common.h" // inline definitions of common functions for CPU and GPU code
+#include "scatter_lineofsight.h"
 
 	// ################ CPU driver routines - keep consistent with GPUdrivers.cu ##############
 
@@ -106,17 +107,23 @@
 				hydrostatic_1d_h2o(ctl, atm, 0, atm->np, ig_h2o);
 			} // ir
 	} // hydrostatic1d_CPU
-
-  void convert_los_t_to_pos_t_CPU(pos_t (*pos)[NLOS], int *np, double *tsurf, los_t const **los, int nr) {
-    #pragma omp  parallel for
-    for(int ir = 0; ir < nr; ir++) {
-      np[ir] = los[ir]->np;
-      tsurf[ir] = los[ir]->tsurf;
-      for(int ip = 0; ip < los[ir]->np; ip++) { 
-        convert_los_to_pos_core(&pos[ir][ip], los[ir], ip);
+  
+  __host__
+  void get_los_and_convert_los_t_to_pos_t_CPU(pos_t (*pos)[NLOS], int *np, double *tsurf, ctl_t const *ctl, 
+                                              atm_t const *atm, obs_t *obs, aero_t *aero) {
+#pragma omp parallel for
+    for(int ir = 0; ir < obs->nr; ir++) {
+      los_t *one_los;
+      one_los = (los_t*) malloc(sizeof(los_t));
+      // raytracer copied from jurassic-scatter
+      jur_raytrace(ctl, atm, obs, aero, one_los, ir);
+      np[ir] = one_los->np;
+      tsurf[ir] = one_los->tsurf;
+      for(int ip = 0; ip < one_los->np; ip++) { 
+        convert_los_to_pos_core(&pos[ir][ip], one_los, ip);
       }
+      free(one_los);
     }
-    printf("\n");
   }
 
 	// ################ end of CPU driver routines ##############
@@ -124,7 +131,7 @@
 	// The full forward model on the CPU ////////////////////////////////////////////
 	__host__
 	void formod_CPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
-                  aero_t const *aero, los_t const **arg_los) {
+                  aero_t const *aero) {
     printf("DEBUG #%d formod_CPU was called!\n", ctl->MPIglobrank);
   
     if (ctl->checkmode) {
@@ -142,8 +149,6 @@
 		int *np = (int*)malloc((obs->nr)*sizeof(int));
 		pos_t (*los)[NLOS] = (pos_t (*)[NLOS])malloc((obs->nr)*(NLOS)*sizeof(pos_t));
 
-//pos_t const (*restrict los)[NLOS],
-
 		// gas absorption continua configuration
 		static int ig_co2 = -999, ig_h2o = -999;
 		if((ctl->ctm_h2o) && (-999 == ig_h2o)) ig_h2o = jur_find_emitter(ctl, "H2O");
@@ -157,13 +162,11 @@
 
  
     hydrostatic1d_CPU(ctl, atm, obs->nr, ig_h2o); // in this call atm might get modified
-    if(arg_los == NULL) {
-      // QUESTION: those lines of sight are not the same as one calcucaled in jurassic-scatter,
-      // also, for lot of them in this version number of points equals 0
+    // if formod function was NOT called from jurassic-scatter project
+    if(ctl->leaf_nr == -1) {
       raytrace_rays_CPU(ctl, atm, obs, los, t_surf, np);
-    } else {
-
-      convert_los_t_to_pos_t_CPU(los, np, t_surf, arg_los, obs->nr);
+    } else {  
+      get_los_and_convert_los_t_to_pos_t_CPU(los, np, t_surf, ctl, atm, obs, aero);
     }
 
     // "beta_a" -> 'a', "beta_e" -> 'e'
@@ -184,7 +187,7 @@
 	} // formod_CPU
 
 	__host__ void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
-                            aero_t const *aero, los_t const ***arg_los, int n)
+                            aero_t const *aero, int n)
 #ifdef hasGPU
     ; // declaration only, will be provided by GPUdrivers.o at link time 
 #else
@@ -204,17 +207,17 @@
                 printf("CUDA not found during compilation, continue on CPUs instead!\n");
                 warnGPU = 0; // switch this warning off
             } // warnGPU
+            //TODO: Add parallelism!
             for(int i = 0; i < n; i++) {
               //aero and los are optionl
-              formod_CPU(ctl, atm, &obs[i], aero, arg_los != NULL ? arg_los[i] : NULL);
+              formod_CPU(ctl, atm, &obs[i], aero);
             }
         } //
     } // formod_GPU
 #endif
 
 	__host__
-
-	void jur_formod(ctl_t const *ctl, atm_t *atm, obs_t *obs, aero_t const *aero, los_t ***los, int n) {
+	void jur_formod(ctl_t const *ctl, atm_t *atm, obs_t *obs, aero_t const *aero, int n) {
         if (ctl->checkmode) {
             static int nr_last_time = -999;
             if (obs->nr != nr_last_time) {
@@ -224,13 +227,12 @@
                 nr_last_time = obs->nr;
             } // only report if nr changed
         } // checkmode
-        printf("useGPU: %d\n", ctl->useGPU); 
-        if (ctl->useGPU) {
-            formod_GPU(ctl, atm, obs, aero, los, n);
+        if (ctl->useGPU) { //has to be changed
+            formod_GPU(ctl, atm, obs, aero, n);
         } else { // USEGPU = 0 means use-GPU-never
             for(int i = 0; i < n; i++) {
               //aero and los are optionl
-              formod_CPU(ctl, atm, &obs[i], aero, los != NULL ? los[i] : NULL);
+              formod_CPU(ctl, atm, &obs[i], aero);
             }
         } // useGPU
     } // formod

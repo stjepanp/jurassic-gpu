@@ -652,7 +652,7 @@
 
 			intpol_atm_geo_pt(ctl, atm, (int) atmIdx, atmNp, z, lon, lat, &p, &t);					// Interpolate atmospheric data
 			intpol_atm_geo_qk(ctl, atm, (int) atmIdx, atmNp, z, lon, lat, q, k);						// Interpolate atmospheric data
-//     printf("ray #%i point#%i %g %g %g\n", ir, np, lon, lat, z); // to debug the raytracer
+//     printf("ray #%i point#%i %g %g %g\n", ir, np, lon, lat, z); // to debug the jur_raytracer
 			write_pos_point(los + np, lon, lat, z, p, t, q, k, ds);
 			if(z < z_low) {
 				z_low = z;

@@ -1,5 +1,6 @@
 #include <cuda.h>
 #include "jr_common.h" // ...
+#include "scatter_lineofsight.h"
 #include <omp.h>
 
 #ifdef GPUDEBUG
@@ -172,27 +173,25 @@
 		hydrostatic_kernel_GPU<<<nr/32 + 1, 32, 0, stream>>> (ctl_G, atm_G, nr, ig_h2o);
 	} // hydrostatic1d_GPU
 
-  /*void __global__
-  convert_los_t_to_pos_t_GPU(pos_t (*pos)[NLOS], int *np, double *tsurf, los_t const *los, int nr) {
-    for(int ir = blockIdx.x; ir < nr; ir += gridDim.x) { // grid stride loop over blocks = rays
-      np[ir] = los[ir].np;
-      tsurf[ir] = los[ir].tsurf;
-      for(int ip = threadIdx.x; ip < los[ir].np; ip += blockDim.x) { // grid stride loop over threads = detectors 
-        convert_los_to_pos_core(&pos[ir][ip], &los[ir], ip);
-      } // ip
-    } // ir
-  }*/
-
-  void convert_los_t_to_pos_t_GPU(pos_t (*pos)[NLOS], int *np, double *tsurf, los_t const **los, int nr) {
-    #pragma omp parallel for
-    for(int ir = 0; ir < nr; ir++) {
-      np[ir] = los[ir]->np;
-      tsurf[ir] = los[ir]->tsurf;
-      for(int ip = 0; ip < los[ir]->np; ip++) { 
-        convert_los_to_pos_core(&pos[ir][ip], los[ir], ip);
+  // at the moment same as get_los_and_convert_lot_t_to_pos_t_CPU
+  __host__
+  void get_los_and_convert_los_t_to_pos_t_GPU(pos_t (*pos)[NLOS], int *np,
+                                              double *tsurf, ctl_t *ctl, 
+                                              atm_t *atm, obs_t *obs,
+                                              aero_t *aero) {
+#pragma omp  parallel for
+    for(int ir = 0; ir < obs->nr; ir++) {
+      los_t *one_los;
+      one_los = (los_t*) malloc(sizeof(los_t));
+      // raytracer copied from jurassic-scatter
+      jur_raytrace(ctl, atm, obs, aero, one_los, ir);
+      np[ir] = one_los->np;
+      tsurf[ir] = one_los->tsurf;
+      for(int ip = 0; ip < one_los->np; ip++) { 
+        convert_los_to_pos_core(&pos[ir][ip], one_los, ip);
       }
+      free(one_los);
     }
-    printf("\n");
   }
 
 	// ################ end of GPU driver routines ##############
@@ -209,13 +208,11 @@
 	} gpuLane_t;
 
 	// The full forward model working on one package of NR rays
-    __host__
-	void formod_one_package(ctl_t const *ctl, ctl_t const *ctl_G,
+	void formod_one_package(ctl_t *ctl, ctl_t *ctl_G,
 			trans_table_t const *tbl_G,
-			atm_t const *atm, // can be made const if we do not get the atms back
+			atm_t *atm, // can be made const if we do not get the atms back
 			obs_t *obs,
-      aero_t const *aero,
-      los_t const **arg_los,
+      aero_t *aero,
 			gpuLane_t const *gpu)
     // a workload manager for the GPU
     {
@@ -260,22 +257,23 @@
 		hydrostatic1d_GPU(ctl, ctl_G, atm_G, nr, ig_h2o, stream); // in this call atm_G gets modified
 		cuKernelCheck();
 
-    if(arg_los == NULL) {
+    // if formod function was NOT called from jurassic-scatter project
+    if(ctl->leaf_nr == -1) {
       raytrace_rays_GPU <<< (nr/64)+1, 64, 0, stream>>> (ctl_G, atm_G, obs_G, los_G, tsurf_G, np_G);
       cuKernelCheck();
     } else {
       pos_t (*los)[NLOS] = (pos_t (*)[NLOS])malloc(nr * (NLOS) * sizeof(pos_t));
       int *np = (int*)malloc(nr * sizeof(int));
       double *tsurf = (double*)malloc(nr * sizeof(double));
-      //this converting is at the moment actually host function
-      //maybe we should write it as GPU kernel function
-      //but I think it is not necessary because it takes GPU memory
-      convert_los_t_to_pos_t_GPU(los, np, tsurf, arg_los, nr);
+      /* this converting is at the moment actually host function
+       * maybe we should write it as GPU kernel function
+       * but I think it is not necessary because it takes GPU memory
+       * convert_los_t_to_pos_t_GPU(los, np, tsurf, arg_los, nr); */
+      get_los_and_convert_los_t_to_pos_t_GPU(los, np, tsurf, ctl, atm, obs, aero);
       copy_data_to_GPU(los_G, los, nr * NLOS * sizeof(pos_t), stream);
       copy_data_to_GPU(np_G, np, nr * sizeof(int), stream);
       copy_data_to_GPU(tsurf_G, tsurf, nr * sizeof(double), stream);
 
-      //maybe I could use cudaEventSynchronize?
       cuKernelCheck();
       free(los);
       free(np);
@@ -304,13 +302,13 @@
 
     // make sure that formod_GPU can be linked from CPUdrivers.c
 	extern "C" {
-	   void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
-                     aero_t const *aero, los_t const ***arg_los, int n);
+	   void formod_GPU(ctl_t *ctl, atm_t *atm, obs_t *obs,
+                     aero_t *aero, int n);
    }
   
 	__host__
-	void formod_GPU(ctl_t const *ctl, atm_t *atm, obs_t *obs,
-                  aero_t const *aero, los_t const ***arg_los, int n) {
+	void formod_GPU(ctl_t *ctl, atm_t *atm, obs_t *obs,
+                  aero_t *aero, int n) {
     static ctl_t *ctl_G=NULL;
 		static trans_table_t *tbl_G=NULL;
 
@@ -400,12 +398,11 @@
     for(int i = 0; i < n; i++) //loop over packages
     {
       int const myLane = omp_get_thread_num();
-      printf("DEBUG #%d i: %d, myLane: %d/%d\n", ctl->MPIglobrank, i, myLane, omp_get_num_threads());
       assert(myLane < numLanes);
       char mask[NR][ND];
       save_mask(mask, &obs[i], ctl);
       copy_data_to_GPU(ctl_G, ctl, sizeof(ctl_t), gpuLanes[myLane].stream); // controls might change, update
-      formod_one_package(ctl, ctl_G, tbl_G, atm, &obs[i], aero, arg_los != NULL ? arg_los[i] : NULL, &gpuLanes[myLane]);
+      formod_one_package(ctl, ctl_G, tbl_G, atm, &obs[i], aero, &gpuLanes[myLane]);
 		  apply_mask(mask, &obs[i], ctl);
     }
     omp_set_nested(false);

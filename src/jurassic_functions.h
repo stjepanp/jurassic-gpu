@@ -122,7 +122,6 @@ void jur_formod(ctl_t const *ctl,
     atm_t *atm, 
     obs_t *obs, 
     aero_t const *aero, 
-    los_t ***los,
     int n);
 
 /*! Compute radiative transfer for a pencil beam. */
