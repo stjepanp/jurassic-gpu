@@ -8,3 +8,8 @@ void formod_multiple_packages(ctl_t *ctl, atm_t *atm,  aero_t *aero, int n, obs_
   printf("DEBUG #%d call jur_formod..\n", ctl->MPIglobrank);
 	jur_formod(ctl, atm, obs_packages, aero, n);
 }
+
+void initialize_jurassic_gpu_table(ctl_t *ctl) {
+  printf("DEBUG #%d call table_initializaiton..\n", ctl->MPIglobrank);
+  jur_table_initialization(ctl); 
+}

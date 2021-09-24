@@ -236,3 +236,24 @@
             }
         } // useGPU
     } // formod
+
+//we could use the same trick as above but it's not necessary
+__host__
+trans_table_t* get_tbl_on_GPU(ctl_t const *ctl)
+;
+
+__host__
+void jur_table_initialization(ctl_t *ctl) {
+  double tic = omp_get_wtime(); 
+  trans_table_t *tbl;
+  if(ctl->useGPU) {
+    printf("DEBUG #%d call initilaze GPU..\n", ctl->MPIglobrank);
+    tbl = get_tbl_on_GPU(ctl); 
+  }
+  else {
+    printf("DEBUG #%d call initilaze CPU..\n", ctl->MPIglobrank);
+    tbl = get_tbl(ctl);
+  }
+  double toc = omp_get_wtime();
+  printf("TIMER #%d jurassic-gpu table initialization time: %lf\n", ctl->MPIglobrank, toc - tic);
+}

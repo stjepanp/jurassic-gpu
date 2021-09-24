@@ -431,3 +431,6 @@ void jur_shell(const char*, const char*);
 /* stringify the value of a macro, two expansion levels needed */
 #define xstr(a) str(a)
 #define str(b) #b
+
+// Added:
+void jur_table_initialization(ctl_t *ctl);  

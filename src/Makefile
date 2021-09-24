@@ -50,7 +50,7 @@ CFEAFLAGS += -D SHOW_GIT_KEY=$(GITKEY)
 COPTFLAGS=
 COPTFLAGS += -O3
 # COPTFLAGS += -Ofast
-COPTFLAGS += -g
+# COPTFLAGS += -g
 # COPTFLAGS += -pg
 # COPTFLAGS += -mtune=power8
 # COPTFLAGS += -mcpu=power8

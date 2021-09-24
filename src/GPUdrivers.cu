@@ -77,10 +77,15 @@
     } // allocate_on_GPU
     #define getUnifiedMemory(TYPE, NUM) (TYPE *)__allocate_unified_memory((NUM)*sizeof(TYPE), __FILE__, __LINE__)
     
+  extern "C" {
+	  trans_table_t* get_tbl_on_GPU(ctl_t const *ctl); 
+  }
     __host__
 	trans_table_t* get_tbl_on_GPU(ctl_t const *ctl) {
+    printf("DEBUG #%d get_tbl_on_GPU was called..\n", ctl->MPIglobrank);
 		static trans_table_t *tbl_G = nullptr;
 		if (!tbl_G) {
+      printf("DEBUG #%d tbl_G == nullptr\n", ctl->MPIglobrank);
 			trans_table_t* tbl = get_tbl(ctl);
 #ifdef  USE_UNIFIED_MEMORY_FOR_TABLES
             printf("[INFO] allocated %.3f MByte unified memory for tables\n", 1e-6*sizeof(trans_table_t));
@@ -305,7 +310,7 @@
 	   void formod_GPU(ctl_t *ctl, atm_t *atm, obs_t *obs,
                      aero_t *aero, int n);
    }
-  
+
 	__host__
 	void formod_GPU(ctl_t *ctl, atm_t *atm, obs_t *obs,
                   aero_t *aero, int n) {
@@ -324,6 +329,7 @@
 		{
 			if (do_init) {
         printf("DEBUG #%d formod_GPU was called!\n", ctl->MPIglobrank);
+        double tic = omp_get_wtime();
 				const size_t sizePerLane = sizeof(obs_t) + NR * (sizeof(atm_t) + sizeof(pos_t[NLOS]) + sizeof(double) + sizeof(int));
         
               if (ctl->checkmode) {
@@ -378,6 +384,8 @@
               } // checkmode
 
 				do_init = false;
+        double toc = omp_get_wtime();
+        printf("TIMER #%d jurassic-gpu gpu_lanes initialization time: %lf\n", ctl->MPIglobrank, toc - tic);
 				// nextLane = 0;
 			} // do_init
 
