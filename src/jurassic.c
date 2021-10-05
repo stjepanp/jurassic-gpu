@@ -1023,7 +1023,7 @@ void jur_read_ctl(int argc, char *argv[], ctl_t *ctl) {
   
     //Added:
     /* Number of leaf rays ... */
-    ctl->leaf_nr=(int) jur_scan_ctl(argc, argv, "LEAF_NR", -1, "-1", NULL);
+    ctl->leaf_nr=(int) jur_scan_ctl(argc, argv, "MAX_QUEUE", -1, "-1", NULL);
 }
 
 //***************************************************************************
