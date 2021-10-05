@@ -13,7 +13,7 @@ LIBDIR += -L ../lib/build/lib
 # Include directories...
 INCDIR =
 #INCDIR += -I ../lib/build/include
-INCDIR += -I ../lib/common_header  
+INCDIR += -I ../../common-header  
 
 # Linking...
 STATIC = 1
@@ -140,7 +140,7 @@ endif
 	$(CC) $(CFLAGS) -MM $< -MF $@
 %.d:%.cu Makefile
 	$(CC) $(CFLAGS) -MM $< -MF $@
--include $(DEP)
+# -include $(DEP)
 
 show:
 	@echo "ENABLEGPU=" $(ENABLEGPU)
