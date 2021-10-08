@@ -233,7 +233,8 @@
     pos_t (* los_G)[NLOS] = gpu->los_G;
 		double *tsurf_G = gpu->tsurf_G;
 		int *np_G = gpu->np_G;
-		cudaEvent_t finishedEvent;
+	  cudaSetDevice(0);
+    cudaEvent_t finishedEvent;
 		cudaEventCreate(&finishedEvent);
 
 		// gas absorption continua configuration
@@ -288,7 +289,7 @@
     multi_version_GPU(fourbit, tbl_G, ctl_G, obs_G, los_G, np_G, ig_co2, ig_h2o, aero_beta_G,
                       nr, nd, ctl->gpu_nbytes_shared_memory, stream);
 		cuKernelCheck();
-		
+
     surface_terms_GPU <<< nr, nd, 0, stream>>> (tbl_G, obs_G, tsurf_G, nd);
 		cuKernelCheck();
         
@@ -298,11 +299,12 @@
 
 // 		get_data_from_GPU(atm, atm_G, 1*sizeof(atm_t), stream); // do we really need to get the atms back?
 		get_data_from_GPU(obs, obs_G, 1*sizeof(obs_t), stream); // always transfer NR rays
+    
+    printf("Heisenbug :) %lf\n", obs->rad[0][0]);
 
 		// Wait for GPU operations to complete
 		cuCheck(cudaEventRecord(finishedEvent, stream));
 		cuCheck(cudaEventSynchronize(finishedEvent));
-
 	} // formod_one_package
 
     // make sure that formod_GPU can be linked from CPUdrivers.c
@@ -335,6 +337,7 @@
               if (ctl->checkmode) {
                 printf("# %s: GPU memory requirement per lane is %.3f MByte\n", __func__, 1e-6*sizePerLane);
               } else {
+                cudaSetDevice(0);
                 cuCheck(cudaGetDeviceCount(&numDevices));
 
                 // Initialize ctl and tbl-struct (1 per GPU)
@@ -395,9 +398,12 @@
 			// if(nextLane >= numLanes) nextLane=0;
 		} // omp critical
 
+    cudaSetDevice(0);
+
 		if (ctl->checkmode) { printf("# %s: no operation in checkmode\n", __func__); return; }
 		
     printf("numDevices: %d\n", numDevices);
+    printf("DEBUG #%d numDevices: %d\n", ctl->MPIglobrank, numDevices);
     
     //I should added this because of CPUs converting los to pos..    
     omp_set_nested(true);
