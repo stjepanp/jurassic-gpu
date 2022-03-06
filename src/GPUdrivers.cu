@@ -122,10 +122,7 @@
 			} // ir
 		} // surface_terms_GPU
 
-// template<int CO2, int H2O, int N2, int O2> for multi-versioning
-#define KERNEL "jr_fusion_kernel.mv4g.cu"
-      #include "jr_multiversion4gases.h" // fusion_kernel_GPU_0000, _0001, ..., _1111
-#undef  KERNEL
+#include "jr_fusion_kernel.mv4g.cu"
 
     __host__
 	void multi_version_GPU(char const fourbit, trans_table_t const *tbl, ctl_t const *ctl,
@@ -135,22 +132,22 @@
 			unsigned const grid, unsigned const block, unsigned const shmem, cudaStream_t const stream) {
 #define LaunchKernel <<< grid, block, shmem, stream >>> (tbl, ctl, obs, los, np, ig_co2, ig_h2o, aero_beta)
 		switch (fourbit) {
-			case 0b0000: fusion_kernel_GPU_0000 LaunchKernel; break;
-			case 0b0001: fusion_kernel_GPU_0001 LaunchKernel; break;
-			case 0b0010: fusion_kernel_GPU_0010 LaunchKernel; break;
-			case 0b0011: fusion_kernel_GPU_0011 LaunchKernel; break;
-			case 0b0100: fusion_kernel_GPU_0100 LaunchKernel; break;
-			case 0b0101: fusion_kernel_GPU_0101 LaunchKernel; break;
-			case 0b0110: fusion_kernel_GPU_0110 LaunchKernel; break;
-			case 0b0111: fusion_kernel_GPU_0111 LaunchKernel; break;
-			case 0b1000: fusion_kernel_GPU_1000 LaunchKernel; break;
-			case 0b1001: fusion_kernel_GPU_1001 LaunchKernel; break;
-			case 0b1010: fusion_kernel_GPU_1010 LaunchKernel; break;
-			case 0b1011: fusion_kernel_GPU_1011 LaunchKernel; break;
-			case 0b1100: fusion_kernel_GPU_1100 LaunchKernel; break;
-			case 0b1101: fusion_kernel_GPU_1101 LaunchKernel; break;
-			case 0b1110: fusion_kernel_GPU_1110 LaunchKernel; break;
-			case 0b1111: fusion_kernel_GPU_1111 LaunchKernel; break;
+			case 0b0000: fusion_kernel_GPU<0,0,0,0> LaunchKernel; break;
+			case 0b0001: fusion_kernel_GPU<0,0,0,1> LaunchKernel; break;
+			case 0b0010: fusion_kernel_GPU<0,0,1,0> LaunchKernel; break;
+			case 0b0011: fusion_kernel_GPU<0,0,1,1> LaunchKernel; break;
+			case 0b0100: fusion_kernel_GPU<0,1,0,0> LaunchKernel; break;
+			case 0b0101: fusion_kernel_GPU<0,1,0,1> LaunchKernel; break;
+			case 0b0110: fusion_kernel_GPU<0,1,1,0> LaunchKernel; break;
+			case 0b0111: fusion_kernel_GPU<0,1,1,1> LaunchKernel; break;
+			case 0b1000: fusion_kernel_GPU<1,0,0,0> LaunchKernel; break;
+			case 0b1001: fusion_kernel_GPU<1,0,0,1> LaunchKernel; break;
+			case 0b1010: fusion_kernel_GPU<1,0,1,0> LaunchKernel; break;
+			case 0b1011: fusion_kernel_GPU<1,0,1,1> LaunchKernel; break;
+			case 0b1100: fusion_kernel_GPU<1,1,0,0> LaunchKernel; break;
+			case 0b1101: fusion_kernel_GPU<1,1,0,1> LaunchKernel; break;
+			case 0b1110: fusion_kernel_GPU<1,1,1,0> LaunchKernel; break;
+			case 0b1111: fusion_kernel_GPU<1,1,1,1> LaunchKernel; break;
 		} // fourbit
 #undef	LaunchKernel
 	} // multi_version_GPU

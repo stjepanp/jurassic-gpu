@@ -24,29 +24,11 @@
 		} // ir
 	} // surface_terms_CPU
 
-	__host__
+	/*__host__
 	double multi_continua_CPU(char const fourbit, ctl_t const *ctl, 
         pos_t const *los, int const ig_co2, int const ig_h2o, int const id) {
-		switch (fourbit) { // multi-versioning for continua
-			case  0: return continua_core_0000(ctl, los, ig_co2, ig_h2o, id);
-			case  1: return continua_core_0001(ctl, los, ig_co2, ig_h2o, id);
-			case  2: return continua_core_0010(ctl, los, ig_co2, ig_h2o, id);
-			case  3: return continua_core_0011(ctl, los, ig_co2, ig_h2o, id);
-			case  4: return continua_core_0100(ctl, los, ig_co2, ig_h2o, id);
-			case  5: return continua_core_0101(ctl, los, ig_co2, ig_h2o, id);
-			case  6: return continua_core_0110(ctl, los, ig_co2, ig_h2o, id);
-			case  7: return continua_core_0111(ctl, los, ig_co2, ig_h2o, id);
-			case  8: return continua_core_1000(ctl, los, ig_co2, ig_h2o, id);
-			case  9: return continua_core_1001(ctl, los, ig_co2, ig_h2o, id);
-			case 10: return continua_core_1010(ctl, los, ig_co2, ig_h2o, id);
-			case 11: return continua_core_1011(ctl, los, ig_co2, ig_h2o, id);
-			case 12: return continua_core_1100(ctl, los, ig_co2, ig_h2o, id);
-			case 13: return continua_core_1101(ctl, los, ig_co2, ig_h2o, id);
-			case 14: return continua_core_1110(ctl, los, ig_co2, ig_h2o, id);
-			case 15: return continua_core_1111(ctl, los, ig_co2, ig_h2o, id);
-		} // fourbit
-		assert(0); return 0; // unreached return statement, but suppresses a compiler warning
-	} // multi_continua_CPU
+        continua_core_non_temp(fourbit, ctl, los, ig_co2, ig_h2o, id);
+	} // multi_continua_CPU */
 
 	__host__
 	void apply_kernels_CPU(trans_table_t const *tbl, ctl_t const *ctl, obs_t *obs, 
@@ -69,7 +51,8 @@
 				for(int id = 0; id < ctl->nd; id++) { // loop over detector channels
 
 					// compute extinction coefficient
-					double const beta_ds = multi_continua_CPU(fourbit, ctl, &(los[ir][ip]), ig_co2, ig_h2o, id);
+					// double const beta_ds = multi_continua_CPU(fourbit, ctl, &(los[ir][ip]), ig_co2, ig_h2o, id);
+					double const beta_ds = continua_core_fourbit(fourbit, ctl, &(los[ir][ip]), ig_co2, ig_h2o, id);
 					
           //Added:
           double const aero_ds = los[ir][ip].aerofac * aero_beta[los[ir][ip].aeroi][id] * los[ir][ip].ds;
